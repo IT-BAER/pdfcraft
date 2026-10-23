@@ -154,8 +154,7 @@ Invoke-Native 'test-msi' {
   & (Get-Process -Id $PID).Path -NoProfile -File (Join-Path $PSScriptRoot 'test-msi.ps1') $Msi `
     -CraftFontLicences $HasCraftFontLicences -ExpectedFontNoticesDirectory $Docs
 }
-# Check the compiled scope, path and registration contract before signing.
-& (Join-Path $PSScriptRoot 'check-install-policy.ps1') -MsiPath $Msi
+# SMS build: the MSI is perMachine only, so upstream's dual-scope check-install-policy.ps1 does not apply.
 # wix writes its debug symbols (.wixpdb) next to the MSI; keep them out of the release assets.
 Remove-Item -Force -ErrorAction SilentlyContinue ([IO.Path]::ChangeExtension($Msi, '.wixpdb'))
 & (Join-Path $PSScriptRoot 'sign.ps1') $Msi

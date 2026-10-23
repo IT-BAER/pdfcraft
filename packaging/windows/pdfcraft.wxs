@@ -3,9 +3,10 @@
   <?ifndef HasCraftFontLicences ?>
   <?define HasCraftFontLicences=0 ?>
   <?endif?>
-  <Package Name="PdfCraft" Manufacturer="Learning Machines LLC" Version="$(var.Version)" UpgradeCode="EA00C367-7270-4C50-9D8B-A7A5C88AD27F" Scope="perUserOrMachine" Compressed="yes" Language="1033">
-    <SummaryInformation Description="PdfCraft PDF workbench" Manufacturer="Learning Machines LLC" />
-    <?include $(sys.SOURCEFILEDIR)install-policy.wxi?>
+  <!-- SMS build: always per-machine (fleet installs run msiexec /qn as SYSTEM); upstream's
+       install-policy.wxi scope choice is not used. -->
+  <Package Name="PdfCraft" Manufacturer="SMS group" Version="$(var.Version)" UpgradeCode="EA00C367-7270-4C50-9D8B-A7A5C88AD27F" Scope="perMachine" Compressed="yes" Language="1033">
+    <SummaryInformation Description="PdfCraft PDF workbench" Manufacturer="SMS group" />
     <!-- HKLM registrations must never point into a per-user installation (#305). Allow removal
          of an existing installation even if an older MSI let it install per-user. -->
     <!-- Same-version upgrades let successive pre-releases of one X.Y.Z replace each other
@@ -17,9 +18,8 @@
          Add/Remove Programs show a blank icon (#57). -->
     <Icon Id="PdfcraftIcon.ico" SourceFile="$(var.IconPath)" />
     <Property Id="ARPPRODUCTICON" Value="PdfcraftIcon.ico" />
-    <Property Id="ARPURLINFOABOUT" Value="https://getartcraft.com/apps/pdfcraft" />
-    <Property Id="ARPURLUPDATEINFO" Value="https://getartcraft.com/apps/pdfcraft" />
-    <Property Id="ARPHELPLINK" Value="https://discord.gg/artcraft" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/IT-BAER/pdfcraft" />
+    <Property Id="ARPURLUPDATEINFO" Value="https://github.com/IT-BAER/pdfcraft" />
     <!-- Desktop shortcut (#143): on by default for a first install, a checkbox in the full-UI
          welcome dialog, and INSTALLDESKTOPSHORTCUT=0 on the msiexec command line for unattended
          installs. Secure, so the choice made in the (unelevated) UI reaches the elevated install.
@@ -65,11 +65,10 @@
     <SetProperty Id="INSTALLIMAGECONTEXTMENU" Value="1" After="CraftLoadOption2U" Sequence="first" Condition="NOT INSTALLIMAGECONTEXTMENU AND (NOT IMAGECONTEXTMENURELEASE OR EXISTINGIMAGECONTEXTMENU)" />
     <UIRef Id="PdfcraftInstallerUI" />
 
+    <!-- SMS build: Program Files\PdfCraft, as installed by the v0.14 SMS MSI. -->
     <StandardDirectory Id="ProgramFiles6432Folder">
-      <Directory Id="CraftSuiteFolder" Name="ArtCraft">
-        <Directory Id="INSTALLFOLDER" Name="PdfCraft">
+      <Directory Id="INSTALLFOLDER" Name="PdfCraft">
         <Directory Id="ModelsFolder" Name="models" />
-      </Directory>
       </Directory>
     </StandardDirectory>
     <StandardDirectory Id="ProgramMenuFolder" />
