@@ -4,6 +4,8 @@
 
 .DESCRIPTION
   Tries, in order:
+    0. A certificate in the CurrentUser\My store: WINDOWS_CERTIFICATE_THUMBPRINT (SHA1). The
+       private key stays in the store (SMS build: non-exportable AD CS code-signing key).
     1. A code-signing certificate file:   WINDOWS_CERTIFICATE (base64 .pfx), WINDOWS_CERTIFICATE_PASSWORD
     2. Azure Trusted Signing:             AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET,
                                           AZURE_SIGNING_ENDPOINT (e.g. https://eus.codesigning.azure.net),
@@ -45,22 +47,30 @@ function Invoke-SignTool([string[]] $Arguments) {
 }
 
 $Files = $Files | ForEach-Object { (Resolve-Path $_).Path }
+$haveStore = [bool]$env:WINDOWS_CERTIFICATE_THUMBPRINT
 $haveCert = [bool]$env:WINDOWS_CERTIFICATE
 $azureVars = 'AZURE_TENANT_ID', 'AZURE_CLIENT_ID', 'AZURE_CLIENT_SECRET', 'AZURE_SIGNING_ENDPOINT', 'AZURE_SIGNING_ACCOUNT', 'AZURE_CERT_PROFILE'
 $haveAzure = -not ($azureVars | Where-Object { -not [Environment]::GetEnvironmentVariable($_) })
 
-if (-not $haveCert -and -not $haveAzure) {
+if (-not $haveStore -and -not $haveCert -and -not $haveAzure) {
   Write-Warn "Windows signing secrets not set (WINDOWS_CERTIFICATE or AZURE_*): leaving unsigned: $($Files -join ', ')"
   exit 0
 }
 
 $script:SignTool = Find-SignTool
-$common = @('sign', '/v', '/fd', 'SHA256', '/td', 'SHA256', '/d', 'PdfCraft', '/du', 'https://github.com/storytold/pdfcraft')
+$common = @('sign', '/v', '/fd', 'SHA256', '/td', 'SHA256', '/d', 'PdfCraft', '/du', 'https://github.com/IT-BAER/pdfcraft')
 $tmp = Join-Path ([IO.Path]::GetTempPath()) "pdfcraft-sign-$([IO.Path]::GetRandomFileName())"
 New-Item -ItemType Directory -Path $tmp | Out-Null
 
 try {
-  if ($haveCert) {
+  if ($haveStore) {
+    $thumb = $env:WINDOWS_CERTIFICATE_THUMBPRINT -replace '\s', ''
+    if ($thumb -notmatch '^[0-9A-Fa-f]{40}$') { throw "WINDOWS_CERTIFICATE_THUMBPRINT is not a SHA1 thumbprint: $thumb" }
+    Write-Output "Signing with CurrentUser\My certificate $($thumb): $($Files -join ', ')"
+    $ts = if ($env:WINDOWS_TIMESTAMP_URL) { $env:WINDOWS_TIMESTAMP_URL } else { 'http://timestamp.digicert.com' }
+    Invoke-SignTool ($common + @('/tr', $ts, '/s', 'My', '/sha1', $thumb) + $Files)
+  }
+  elseif ($haveCert) {
     Write-Output "Signing with WINDOWS_CERTIFICATE: $($Files -join ', ')"
     $pfx = Join-Path $tmp 'cert.pfx'
     [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE))
