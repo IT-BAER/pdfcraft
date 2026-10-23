@@ -38,13 +38,10 @@ function Assert-NoRow([string] $Sql, [string] $What) {
   } finally { [void] $view.Close() }
 }
 
-# The shared compiled contract covers both scopes, duplicate guards and safe maintenance.
-# Keep it in a separate process because Windows Installer permits one session per process.
-& (Get-Process -Id $PID).Path -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'check-install-policy.ps1') -MsiPath $Path
-if ($LASTEXITCODE -ne 0) { throw 'Dual-scope installer contract failed.' }
+# SMS build: perMachine only; upstream's dual-scope check-install-policy.ps1 does not apply.
 $Installer.UILevel = 2
 $manufacturer = Read-Row 'SELECT `Value` FROM `Property` WHERE `Property` = ''Manufacturer''' 1
-Assert-Equal $manufacturer[0] 'Learning Machines LLC' 'MSI manufacturer'
+Assert-Equal $manufacturer[0] 'SMS group' 'MSI manufacturer'
 
 # Embedded craft-fonts must ship their OFL notices; a build without them must not claim any.
 # Check the compiled File table, not only the WiX source, so a staging or component-group mistake
@@ -143,7 +140,7 @@ Assert-Equal $checked[0] '1' 'Welcome checkbox value'
 $app = Read-Row 'SELECT `KeyPath` FROM `Component` WHERE `Component` = ''PdfcraftApp''' 1
 Assert-Equal $app[0] 'PdfcraftExe' 'Shortcut executable key path'
 $scope = Read-Row 'SELECT `Value` FROM `Property` WHERE `Property` = ''ALLUSERS''' 1
-Assert-Equal $scope[0] '2' 'Dual-scope shortcut package'
+Assert-Equal $scope[0] '1' 'Per-machine package (SMS build)'
 
 # Each File Explorer menu remembers whether it was installed by finding its key path in HKLM, in the
 # package's own registry view (64-bit for x64 and arm64). Only a release that offered the menu can
