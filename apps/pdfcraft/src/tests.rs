@@ -53,6 +53,26 @@ fn gpu() -> std::sync::MutexGuard<'static, ()> {
 }
 
 #[test]
+fn the_reader_opens_documents_at_100_percent_until_the_user_picks_another_zoom() {
+    use pdfcraft_ui_egui::canvas::Fit;
+    // One page whose OpenAction asks for Fit page.
+    const ASKS_FIT: &[u8] = b"%PDF-1.7
+1 0 obj << /Type /Catalog /Pages 2 0 R /OpenAction [3 0 R /Fit] >> endobj
+2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj
+3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 300 400] >> endobj
+trailer << /Root 1 0 R >>
+%%EOF";
+    let mut app = pdfcraft_ui_egui::PdfCraftApp::new();
+    super::reader_view_defaults(&mut app);
+    app.open_bytes("asks.pdf", None, ASKS_FIT.to_vec()).expect("opens");
+    assert_eq!((app.views[0].fit, app.views[0].zoom), (Fit::None, 1.0));
+    // A saved choice from Preferences wins over the reader's default.
+    app.restore(r#"{"default_zoom":"fit-width","always_default_view":false}"#);
+    assert_eq!(app.view_defaults.zoom_name(), "fit-width");
+    assert!(!app.always_default_view);
+}
+
+#[test]
 fn a_control_channel_that_cant_be_published_stops_the_app() {
     let dir = std::env::temp_dir().join(format!("pdfcraft-app-control-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
