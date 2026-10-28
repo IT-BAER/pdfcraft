@@ -85,9 +85,10 @@ impl PdfCraftApp {
         }
         // Undo also takes back typing in a box open on the page, and Redo what Undo took there,
         // with no document step.
-        (commands::is_enabled(spec, &self.session, self.active_ids().map(|(_, id)| id))
-            || spec.needs == commands::Needs::Undo && self.page_typing_unapplied()
-            || spec.needs == commands::Needs::Redo && self.open_box_can_redo())
+        self.offers(spec.id)
+            && (commands::is_enabled(spec, &self.session, self.active_ids().map(|(_, id)| id))
+                || spec.needs == commands::Needs::Undo && self.page_typing_unapplied()
+                || spec.needs == commands::Needs::Redo && self.open_box_can_redo())
             && (spec.id != "edit.copy"
                 || self
                     .active
@@ -156,6 +157,10 @@ impl PdfCraftApp {
 
     fn execute_unguarded(&mut self, id: &str) -> bool {
         let Some(spec) = commands::command(id) else { return false };
+        if !self.offers(id) {
+            self.notify_tr("Not available in this version");
+            return false;
+        }
         if !self.command_enabled(spec) {
             let why = self.disabled_reason(spec);
             self.notify(why);
@@ -214,11 +219,6 @@ impl PdfCraftApp {
                     self.notify_tr("Security will be removed when you save");
                 }
             }
-            link if pdfcraft_engine::links::for_command(link).is_some() => {
-                if let Some(l) = pdfcraft_engine::links::for_command(link) {
-                    self.open_url(l.url);
-                }
-            }
             "app.preferences" => self.dialog = Some(Dialog::Preferences),
             "protect.remove_hidden" => self.open_remove_hidden(),
             "print.dialog" => self.open_print(),
@@ -246,7 +246,6 @@ impl PdfCraftApp {
             "optimize.reduce" => self.reduce_file_size(),
             "help.shortcuts" => self.dialog = Some(Dialog::Shortcuts),
             "help.about" => self.dialog = Some(Dialog::About),
-            "help.check_updates" => self.check_for_updates(),
             _ => return None,
         }
         Some(true)
@@ -798,6 +797,9 @@ impl PdfCraftApp {
         specs.sort_by_key(|c| std::cmp::Reverse(c.shortcut.map(|s| s.modifier_count()).unwrap_or(0)));
         for spec in specs {
             let Some(s) = spec.shortcut else { continue };
+            if !self.offers(spec.id) {
+                continue;
+            }
             // Keep the canvas's silent no-op when there is no previous/next view to visit.
             if matches!(spec.id, "view.previous_view" | "view.next_view") && !self.command_enabled(spec) {
                 continue;

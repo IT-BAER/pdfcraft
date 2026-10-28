@@ -1,9 +1,8 @@
-//! Links in the SMS build: no ArtCraft marks or community links (upstream docs/brand/LICENSE-brand.txt
-//! bars them in forks). Help menu and About dialog open this build's page and the upstream source.
+//! The SMS build has no links of its own: no community or project links on the home screen, in the
+//! Help menu or in the About dialog, and no update check.
 
 use egui_kittest::Harness;
 use egui_kittest::kittest::Queryable;
-use pdfcraft_engine::links;
 use pdfcraft_ui_egui::{Dialog, PdfCraftApp};
 
 fn harness(setup: impl FnOnce(&mut PdfCraftApp) + 'static) -> Harness<'static, PdfCraftApp> {
@@ -18,75 +17,53 @@ fn harness(setup: impl FnOnce(&mut PdfCraftApp) + 'static) -> Harness<'static, P
 }
 
 #[test]
-fn links_point_at_this_build_and_upstream_only() {
-    assert_eq!(links::APP_PAGE, "https://github.com/IT-BAER/pdfcraft");
-    assert_eq!(links::GITHUB, "https://github.com/storytold/pdfcraft");
-    for l in links::LINKS {
-        let url = l.url.to_ascii_lowercase();
-        assert!(!url.contains("artcraft") && !url.contains("discord"), "{}: {}", l.command, l.url);
-        assert!(!l.label.contains("ArtCraft") && !l.label.contains("Discord"), "{}", l.label);
-    }
-}
-
-#[test]
-fn top_bar_and_home_screen_have_no_community_links() {
+fn home_screen_has_no_links_or_marketing() {
     let h = harness(|_| {});
-    assert!(h.query_by_label("Discord").is_none());
-    assert!(h.query_by_label("Join the ArtCraft community").is_none());
-    assert!(h.query_by_label("Join our Discord").is_none());
+    for label in [
+        "Discord",
+        "Join the ArtCraft community",
+        "Join our Discord",
+        "PdfCraft on GitHub",
+        "PdfCraft web page",
+        "Check for updates…",
+        "Privacy",
+        "An open-source PDF workbench — local, private, and scriptable.",
+    ] {
+        assert!(h.query_by_label(label).is_none(), "{label}");
+    }
+    assert_eq!(h.query_all_by_label_contains("GitHub").count(), 0);
+    assert_eq!(h.query_all_by_label_contains("web page").count(), 0);
+    assert_eq!(h.query_all_by_label_contains("telemetry").count(), 0);
+    h.get_by_label("Welcome to PdfCraft");
 }
 
 #[test]
-fn about_dialog_credits_upstream_in_plain_text() {
-    let mut h = harness(|app| app.dialog = Some(Dialog::About));
-    assert_eq!(h.query_all_by_label("ArtCraft").count(), 0, "no ArtCraft mark or wordmark");
+fn help_menu_is_shortcuts_and_about_only() {
+    let ids: Vec<&str> = pdfcraft_engine::commands::menu("Help").map(|c| c.id).collect();
+    assert_eq!(ids, ["help.shortcuts", "help.about"]);
+}
+
+#[test]
+fn about_dialog_has_a_license_line_and_a_plain_upstream_credit() {
+    let h = harness(|app| app.dialog = Some(Dialog::About));
+    h.get_by_label("Licensed under MIT or Apache-2.0.");
     h.get_by_label("Based on PdfCraft by the ArtCraft team and community.");
-    h.get_by_label("PdfCraft on GitHub").click();
-    h.run_steps(2);
-    assert_eq!(h.state().last_opened_url.as_deref(), Some(links::GITHUB));
+    assert_eq!(h.query_all_by_label("ArtCraft").count(), 0, "no ArtCraft mark or wordmark");
+    for label in ["Contributors", "Models", "PdfCraft on GitHub", "PdfCraft web page"] {
+        assert!(h.query_by_label(label).is_none(), "{label}");
+    }
 }
 
 #[test]
-fn help_commands_open_each_link() {
-    for l in links::LINKS {
+fn help_commands_open_no_web_page() {
+    for id in ["help.shortcuts", "help.about"] {
         let mut h = harness(|_| {});
-        assert!(h.state_mut().execute(l.command), "{}", l.command);
-        assert_eq!(h.state().last_opened_url.as_deref(), Some(l.url));
-        assert_eq!(pdfcraft_engine::commands::command(l.command).unwrap().menu, Some("Help"));
+        assert!(h.state_mut().execute(id), "{id}");
+        assert_eq!(h.state().last_opened_url, None, "{id}");
     }
-}
-
-/// Runs frames until the node labelled `label` exists and has stopped moving, then returns it.
-///
-/// The About dialog is a modal centred on its own size, and switching tabs changes that size, so
-/// for a few frames afterwards the modal grows and recentres and every control in it moves. A
-/// fixed number of frames is a guess at how long that takes: it was too few after the 0.5.0
-/// contributors refresh (78 names instead of 5) on some machines, the click on Table landed where
-/// the button had been, and the table never opened (#671).
-fn settled<'a>(h: &'a mut Harness<'static, PdfCraftApp>, label: &'a str) -> egui_kittest::Node<'a> {
-    let mut last = None;
-    for _ in 0..60 {
-        h.run_steps(1);
-        let now = h.query_by_label(label).map(|n| n.rect());
-        if now.is_some() && now == last {
-            return h.get_by_label(label);
-        }
-        last = now;
+    for id in ["help.app_page", "help.github", "help.check_updates"] {
+        assert!(pdfcraft_engine::commands::command(id).is_none(), "{id} is gone");
+        let mut h = harness(|_| {});
+        assert!(!h.state_mut().execute(id), "{id}");
     }
-    panic!("{label:?} never appeared or never stopped moving");
-}
-
-#[test]
-fn about_dialog_has_contributors_and_models_tabs() {
-    let mut h = harness(|app| app.dialog = Some(Dialog::About));
-    settled(&mut h, "Contributors").click();
-    // The owner is always in the compiled-in credits (contributors/contributors.json), shown by username.
-    settled(&mut h, "@echelon");
-    settled(&mut h, "Table").click();
-    settled(&mut h, "PRs");
-    settled(&mut h, "Display name").click();
-    settled(&mut h, "Brandon Thomas");
-    settled(&mut h, "Models").click();
-    h.run_steps(4);
-    assert!(h.query_all_by_label("Anthropic").count() >= 1);
 }

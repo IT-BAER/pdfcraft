@@ -1074,6 +1074,9 @@ impl crate::PdfCraftApp {
 
     /// Whether there is an image in the in-memory clipboard or system clipboard ready to paste.
     pub fn can_paste_image(&self) -> bool {
+        if !self.offers("edit.image") {
+            return false;
+        }
         if let Some(crate::create_ui::Clip::Image { .. }) = self.clipboard_override.as_ref() {
             return true;
         }
@@ -1143,6 +1146,10 @@ impl crate::PdfCraftApp {
         system_authoritative: bool,
         clipboard: Option<crate::create_ui::Clip>,
     ) -> bool {
+        // Every image paste ends here, so this is where the reader profile refuses it.
+        if !self.offers("edit.image") {
+            return false;
+        }
         let Some((i, id)) = self.active_ids() else {
             return false;
         };

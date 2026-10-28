@@ -1,5 +1,15 @@
 use super::*;
 
+pub(super) fn reader_profile_id() -> egui::Id {
+    egui::Id::unique("pdfcraft-reader-profile")
+}
+
+/// [`PdfCraftApp::offers`] for widgets drawn without the app: the profile is copied into `ctx`
+/// at the start of every frame.
+pub(crate) fn offered(ctx: &egui::Context, id: &str) -> bool {
+    !ctx.data(|d| d.get_temp::<bool>(reader_profile_id())).unwrap_or(false) || pdfcraft_engine::reader::allows_command(id)
+}
+
 impl PdfCraftApp {
     /// Run a catalogue command. Commands that aren't implemented yet say which milestone ships them.
     pub fn run_command(&mut self, command: &str) {
@@ -56,9 +66,64 @@ impl PdfCraftApp {
         self.left_open = true;
     }
 
+    /// Whether the command `id` is offered: always, unless the reader profile leaves it out.
+    pub(crate) fn offers(&self, id: &str) -> bool {
+        !self.reader_profile || pdfcraft_engine::reader::allows_command(id)
+    }
+
+    /// Whether the tool group `id` is offered: always, unless the reader profile leaves it out.
+    pub(crate) fn offers_group(&self, id: &str) -> bool {
+        !self.reader_profile || pdfcraft_engine::reader::allows_group(id)
+    }
+
+    /// Whether the workspace `mode` is offered: Edit and Convert belong to tool groups the reader
+    /// profile may leave out.
+    pub(crate) fn offers_mode(&self, mode: Mode) -> bool {
+        match mode {
+            Mode::Edit => self.offers_group("edit"),
+            Mode::Convert => self.offers_group("export"),
+            Mode::AllTools | Mode::Read | Mode::Sign => true,
+        }
+    }
+
+    /// Whether the side panel `panel` is offered: the accessibility and compare panels belong to
+    /// commands the reader profile may leave out.
+    pub(crate) fn offers_panel(&self, panel: RightPanel) -> bool {
+        match panel {
+            RightPanel::Accessibility => self.offers("a11y.check"),
+            RightPanel::Tags => self.offers("a11y.tags"),
+            RightPanel::Compare => self.offers("doc.compare"),
+            _ => true,
+        }
+    }
+
+    /// Whether the page tool `tool` is offered: the reader profile keeps viewing, comment, stamp,
+    /// Fill & Sign, measure and digital signing tools, and leaves out editing ones.
+    pub(crate) fn offers_quick(&self, tool: QuickTool) -> bool {
+        !self.reader_profile
+            || matches!(
+                tool,
+                QuickTool::Select
+                    | QuickTool::Hand
+                    | QuickTool::MarqueeZoom
+                    | QuickTool::Snapshot
+                    | QuickTool::ColumnSelect
+                    | QuickTool::Comment(_)
+                    | QuickTool::Measure(_)
+                    | QuickTool::Fill(_)
+                    | QuickTool::Stamp(_)
+                    | QuickTool::CustomStamp(_)
+                    | QuickTool::SignArea { certify: false }
+            )
+    }
+
     /// Enter a tool from the catalogue, Home, palette or control channel. Organize is a
     /// workspace, so opening its panel also opens the page grid (without toggling it off).
+    /// A tool group the reader profile leaves out is ignored.
     pub(crate) fn select_tool(&mut self, id: &'static str) {
+        if !self.offers_group(id) {
+            return;
+        }
         // The tool's panel shows, not the expanded All tools view over it.
         self.all_tools_full = false;
         self.left = LeftPanel::Tool(id);
@@ -75,6 +140,7 @@ impl PdfCraftApp {
     /// Select the workspace and its matching tool panel, just like the mode bar. The tool goes
     /// with the workspace as [`Self::enter_mode`] sets it.
     pub(crate) fn select_mode(&mut self, mode: Mode) {
+        let mode = if self.offers_mode(mode) { mode } else { Mode::AllTools };
         self.enter_mode(mode);
         self.reveal_tools();
         if let Some(view) = self.active.and_then(|i| self.views.get_mut(i)) {
@@ -94,6 +160,7 @@ impl PdfCraftApp {
     /// every paragraph and image on the page gets its box and is editable with one click. Leaving
     /// Edit puts the editing tools down again and applies a paragraph still open in the editor.
     pub(crate) fn enter_mode(&mut self, mode: Mode) {
+        let mode = if self.offers_mode(mode) { mode } else { Mode::AllTools };
         self.mode = mode;
         // Another workspace puts the expanded All tools view away.
         if mode != Mode::AllTools {

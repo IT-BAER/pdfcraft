@@ -70,9 +70,7 @@ pub fn tab_strip(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
                     app.combine_tab.focused = false;
                 }
                 // Reserve the three icon buttons and their gaps outside the scrolling tabs.
-                let controls_width = 3.0 * button
-                    + 54.0
-                    + window_controls::width(&controls.right);
+                let controls_width = 3.0 * button + 54.0 + window_controls::width(&controls.right);
                 // Open stays in sight after the tabs: its icon, text and padding, and the gaps around it.
                 let open_width = ui.fonts_mut(|f| f.layout_no_wrap(tl!("Open").into(), theme::medium(13.0), t.text).size().x) + 38.0 + 12.0;
                 let mut tabs_width = (ui.available_width() - controls_width - open_width).max(0.0);
@@ -490,6 +488,9 @@ pub fn mode_bar(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
                 // Acrobat's mode bar has no Read tab: reading is what the viewer does with no tool
                 // in use. Read mode (the panes hidden) stays a View command and a default workspace.
                 for (mode, label) in [(Mode::AllTools, "All tools"), (Mode::Edit, "Edit"), (Mode::Convert, "Convert"), (Mode::Sign, "E-Sign")] {
+                    if !app.offers_mode(mode) {
+                        continue;
+                    }
                     if widgets::mode_tab(ui, tl!(label), app.mode == mode).clicked() {
                         app.switch_mode(mode, true);
                     }
@@ -542,6 +543,7 @@ pub fn right_rail(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
         !doc.info.attachments.is_empty(),
     );
     let page_count = doc.info.pages.len();
+    let (offers_a11y, offers_tags) = (app.offers_panel(RightPanel::Accessibility), app.offers_panel(RightPanel::Tags));
     let labels: Vec<String> = doc.info.pages.iter().map(|p| p.label.clone()).collect();
     let item = |panel: RightPanel, icon: &str, label: &str, marker: Option<&str>| {
         let item = RailItem::new(panel, icons::source(icon), tl!(label)).marker(marker.is_some());
@@ -560,10 +562,12 @@ pub fn right_rail(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
         item(RightPanel::Attachments, "paperclip", "Attachments", has(has_files, "Has attachments")),
         item(RightPanel::Signatures, "signature", "Signatures", has(has_signatures, "Signed")),
     ];
-    if has_check {
+    if has_check && offers_a11y {
         items.push(item(RightPanel::Accessibility, "accessibility", "Accessibility Checker", None));
     }
-    items.push(item(RightPanel::Tags, "tag", "Tags", None));
+    if offers_tags {
+        items.push(item(RightPanel::Tags, "tag", "Tags", None));
+    }
     let view = &mut app.views[index];
     let mut page_display = None;
     let rail = Rail::new(egui::Id::unique("rail"))
