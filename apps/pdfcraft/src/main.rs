@@ -337,6 +337,8 @@ fn native_options(integrated: bool, app_frame: bool, renderer: eframe::Renderer)
     let mut viewport = egui::ViewportBuilder::default()
         .with_title(pdfcraft_ui_egui::DISPLAY_NAME)
         .with_inner_size([1440.0, 920.0])
+        // First run only: a saved window state replaces size and maximized.
+        .with_maximized(true)
         .with_min_inner_size([820.0, 520.0])
         .with_drag_and_drop(true)
         // Wayland app id: matches packaging/linux/ai.storyteller.pdfcraft.desktop.
@@ -795,13 +797,21 @@ fn pick_adapter(adapters: &[(u32, u32, eframe::wgpu::DeviceType)], displays: &[D
         .map(|(i, _)| i)
 }
 
-/// The SMS reader opens every PDF at 100%, whatever zoom or layout the PDF asks for. Applied
-/// before the saved settings load, so a choice made in Preferences still wins.
+/// The SMS reader opens every PDF at 100%, whatever zoom or layout the PDF asks for, with the
+/// tools pane closed, prints on A4 and writes dates as dd.mm.yyyy. Applied before the saved
+/// settings load, so the user's own choices win.
 fn reader_view_defaults(app: &mut PdfCraftApp) {
     if let Some(defaults) = app.view_defaults.with_zoom("100%") {
         app.view_defaults = defaults;
     }
     app.always_default_view = true;
+    app.left_open = false;
+    if let Some(a4) = pdfcraft_engine::print::PAPERS.iter().position(|(name, _)| *name == "A4") {
+        app.print_draft.paper = a4;
+    }
+    if let Err(e) = app.session.set_date_format("dd.mm.yyyy") {
+        log::warn!("reader date format: {e}");
+    }
 }
 
 #[cfg(test)]
@@ -843,6 +853,34 @@ trailer << /Root 1 0 R >>
         app.restore(r#"{"default_zoom":"fit-width","always_default_view":false}"#);
         assert_eq!(app.view_defaults.zoom_name(), "fit-width");
         assert!(!app.always_default_view);
+    }
+
+    #[test]
+    fn the_reader_starts_with_the_tools_pane_closed_until_the_user_opens_it() {
+        let saved_open = pdfcraft_ui_egui::PdfCraftApp::new().persist();
+        let mut app = pdfcraft_ui_egui::PdfCraftApp::new();
+        super::reader_view_defaults(&mut app);
+        assert!(!app.left_open);
+        app.restore(&saved_open);
+        assert!(app.left_open, "a saved open pane wins");
+    }
+
+    #[test]
+    fn the_reader_prints_on_a4_and_writes_dd_mm_yyyy_until_the_user_picks_others() {
+        use pdfcraft_engine::print::PAPERS;
+        let mut app = pdfcraft_ui_egui::PdfCraftApp::new();
+        super::reader_view_defaults(&mut app);
+        assert_eq!(PAPERS[app.print_draft.paper].0, "A4");
+        assert_eq!(app.session.date_format(), "dd.mm.yyyy");
+        app.restore(r#"{"print_paper":"US Legal","date_format":"yyyy-mm-dd"}"#);
+        assert_eq!((PAPERS[app.print_draft.paper].0, app.session.date_format()), ("US Legal", "yyyy-mm-dd"), "saved choices win");
+    }
+
+    #[test]
+    fn the_first_window_opens_maximized() {
+        // A saved window state replaces this on later runs (egui-winit WindowSettings).
+        let options = super::native_options(false, false, eframe::Renderer::Glow);
+        assert_eq!(options.viewport.maximized, Some(true));
     }
 
     #[test]
