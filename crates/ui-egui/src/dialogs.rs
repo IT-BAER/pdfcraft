@@ -27,7 +27,6 @@ fn dialogs(app: &mut PdfCraftApp, ctx: &egui::Context) {
     link_prompt(app, ctx);
     remote_link_prompt(app, ctx);
     full_screen_prompt(app, ctx);
-    crate::updates::dialog(app, ctx);
     if app.dialog != Some(Dialog::WordCount) {
         app.word_count_draft.cancel();
     }
@@ -298,7 +297,10 @@ fn dialogs(app: &mut PdfCraftApp, ctx: &egui::Context) {
                             None => {
                                 row(ui, "Security method", tl!("No security").to_string());
                                 row(ui, "Restrictions", tl!("None — everything is allowed").to_string());
-                                if doc.allows_security_change() && ui.button(tl!("Protect using password…")).clicked() {
+                                if doc.allows_security_change()
+                                    && crate::offered(ui.ctx(), "protect.password")
+                                    && ui.button(tl!("Protect using password…")).clicked()
+                                {
                                     link_command = Some("protect.password");
                                 }
                             }
@@ -317,7 +319,7 @@ fn dialogs(app: &mut PdfCraftApp, ctx: &egui::Context) {
                                     },
                                 );
                                 // A restricted document asks for its permissions password first.
-                                if doc.allows_security_change() || doc.can_unlock() {
+                                if (doc.allows_security_change() || doc.can_unlock()) && crate::offered(ui.ctx(), "protect.password") {
                                     ui.horizontal(|ui| {
                                         if doc.can_unlock() && ui.button(tl!("Unlock…")).clicked() {
                                             link_command = Some("protect.unlock");
@@ -1243,6 +1245,7 @@ fn dialogs(app: &mut PdfCraftApp, ctx: &egui::Context) {
                 // keys the document view handles itself.
                 let mut rows: Vec<(String, String)> = pdfcraft_engine::commands::COMMANDS
                     .iter()
+                    .filter(|c| app.offers(c.id))
                     .filter_map(|c| {
                         c.shortcut.map(|k| (crate::commands::shortcut_label(ui.ctx(), k), tl!(c.label).trim_end_matches('…').to_string()))
                     })
@@ -1285,43 +1288,20 @@ fn dialogs(app: &mut PdfCraftApp, ctx: &egui::Context) {
                 });
             }
             Dialog::About => {
-                // Tabs About · Contributors · Models (craftrules standards/contributors.md).
-                let tab_id = egui::Id::new("about_tab");
-                let mut tab = ui.data_mut(|d| d.get_temp::<u8>(tab_id)).unwrap_or(0);
-                ui.horizontal_wrapped(|ui| {
-                    for (i, label) in ["About", "Contributors", "Models"].into_iter().enumerate() {
-                        let i = i as u8;
-                        if widgets::mode_tab(ui, tl!(label), tab == i).clicked() {
-                            tab = i;
-                        }
-                    }
-                });
-                ui.data_mut(|d| d.insert_temp(tab_id, tab));
-                ui.separator();
-                match tab {
-                    1 => crate::credits::contributors_ui(ui),
-                    2 => crate::credits::models_ui(ui),
-                    _ => {
-                        ui.label(egui::RichText::new("PdfCraft").font(theme::semibold(20.0)));
-                        ui.label(crate::i18n::fmt(tl!("Version {v}"), &[("v", &pdfcraft_engine::build_info::version())]));
-                        ui.add_space(6.0);
-                        ui.label(tl!("A clean-room, open-source PDF application written in Rust. MIT OR Apache-2.0."));
-                        ui.label(
-                            egui::RichText::new(
-                                "Rendering: hayro (bootstrap) · UI: egui · Icons: Lucide (ISC) · Fonts: Inter, JetBrains Mono, Dancing Script (OFL)",
-                            )
-                            .color(t.text_muted)
-                            .small(),
-                        );
-                        ui.add_space(12.0);
-                        // Plain-text credit: forks may not show the ArtCraft marks (upstream docs/brand/LICENSE-brand.txt).
-                        ui.label(egui::RichText::new("Based on PdfCraft by the ArtCraft team and community.").color(t.text_muted));
-                        ui.add_space(6.0);
-                        if let Some(cmd) = widgets::community_links(ui) {
-                            link_command = Some(cmd);
-                        }
-                    }
-                }
+                ui.label(egui::RichText::new("PdfCraft").font(theme::semibold(20.0)));
+                ui.label(crate::i18n::fmt(tl!("Version {v}"), &[("v", &pdfcraft_engine::build_info::version())]));
+                ui.add_space(6.0);
+                ui.label(tl!("Licensed under MIT or Apache-2.0."));
+                ui.label(
+                    egui::RichText::new(
+                        "Rendering: hayro (bootstrap) · UI: egui · Icons: Lucide (ISC) · Fonts: Inter, JetBrains Mono, Dancing Script (OFL)",
+                    )
+                    .color(t.text_muted)
+                    .small(),
+                );
+                ui.add_space(12.0);
+                // Plain-text credit: forks may not show the ArtCraft marks (upstream docs/brand/LICENSE-brand.txt).
+                ui.label(egui::RichText::new("Based on PdfCraft by the ArtCraft team and community.").color(t.text_muted));
             }
         }
         ui.add_space(16.0);

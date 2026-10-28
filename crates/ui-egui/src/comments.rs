@@ -2029,7 +2029,7 @@ pub(crate) fn context_menu(
     }
     // Every comment of the document into its pages, as Comment ▸ Flatten comments does: signed
     // or reviewed pages whose comments should no longer move.
-    if !info.annotations.is_empty() {
+    if !info.annotations.is_empty() && crate::offered(ui.ctx(), "comment.flatten") {
         ui.separator();
         if ui.add_enabled(can_modify, egui::Button::new(tl!("Flatten comments"))).clicked() {
             view.comments.selected = None;

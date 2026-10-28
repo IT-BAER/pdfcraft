@@ -257,7 +257,8 @@ impl PrintDraft {
 
 /// Lists the printers off the UI thread (the desktop app sets [`PdfCraftApp::printer_source`]):
 /// on Windows each driver's capabilities are read for its two-sided support, and CUPS' driverless discovery can wait on
-/// the network. Without a source the dialog reads them as it opens, so tests stay deterministic.
+/// the network. Without a source the spooler is never read and the dialog offers Save as PDF
+/// only, so tests stay deterministic on any machine (a driver's own modal dialogs would hang them).
 pub type PrinterSource = std::sync::Arc<dyn Fn() -> Vec<spool::Printer> + Send + Sync>;
 
 /// Where a printer's driver options come from: the spooler's (`spool::printer_options_in`, in the
@@ -295,8 +296,8 @@ pub(crate) struct PrintTasks {
     web_last: Option<(String, std::sync::Arc<Vec<u8>>)>,
 }
 
-/// The printers to offer when no [`PrinterSource`] is set: the spooler's, or in a browser its
-/// print dialog.
+/// The printers to offer when no [`PrinterSource`] is set: in a browser its print dialog; on a
+/// desktop none, as only a source reads the spooler.
 fn listed_printers() -> Vec<spool::Printer> {
     #[cfg(target_arch = "wasm32")]
     {
@@ -304,7 +305,7 @@ fn listed_printers() -> Vec<spool::Printer> {
     }
     #[cfg(not(target_arch = "wasm32"))]
     {
-        spool::printers()
+        Vec::new()
     }
 }
 

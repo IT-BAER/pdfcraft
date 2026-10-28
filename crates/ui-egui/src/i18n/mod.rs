@@ -1808,13 +1808,6 @@ mod tests {
         ];
         engine.into_iter().flatten().for_each(|s| add(s));
         pdfcraft_engine::sign::AppearanceLabels::default().fields().into_iter().for_each(|(_, label)| add(label));
-        crate::credits::NameMode::ALL.iter().for_each(|mode| add(mode.label()));
-        for key in crate::credits::SortKey::ALL {
-            let (label, header) = key.label();
-            add(label);
-            add(header);
-        }
-        crate::credits::MODEL_COLUMNS.iter().for_each(|s| add(s));
         // (context, source) keys; `@id` rows only reword a command label, which is in `plain`.
         let mut keys: BTreeSet<(String, String)> = plain.into_iter().map(|s| (String::new(), s)).collect();
         for language in &LANGUAGES {

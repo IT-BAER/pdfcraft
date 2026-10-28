@@ -26,18 +26,25 @@ fn label_hit(label: &str, translated: &str, query: &str, rtl: bool) -> bool {
 /// Whether `group` matches `query` (already trimmed and lower-cased), in English or the UI
 /// language. `None` is no match; otherwise the items that matched, empty when the tool's own
 /// name did. An entry with a menu (Watermark: Add, Update, Remove) also matches by its commands'
-/// names, so "remove watermark" finds it.
-fn matches(query: &str, group: &ToolGroup) -> Option<Vec<&'static str>> {
+/// names, so "remove watermark" finds it. Only items whose command `offers` are searched.
+fn matches(query: &str, group: &ToolGroup, offers: impl Fn(&str) -> bool) -> Option<Vec<&'static str>> {
     let rtl = crate::i18n::current().rtl();
     let hit = |label: &str| label_hit(label, tl!(label), query, rtl);
     if query.is_empty() || hit(group.label) {
         return Some(Vec::new());
     }
     let action_hit = |id: &&str| {
-        pdfcraft_engine::commands::command(id).is_some_and(|spec| label_hit(spec.label, &crate::i18n::menu_label(spec.id, spec.label), query, rtl))
+        offers(id)
+            && pdfcraft_engine::commands::command(id)
+                .is_some_and(|spec| label_hit(spec.label, &crate::i18n::menu_label(spec.id, spec.label), query, rtl))
     };
-    let items: Vec<_> =
-        group.sections.iter().flat_map(|s| s.items.iter()).filter(|i| hit(i.label) || i.actions.iter().any(action_hit)).map(|i| i.label).collect();
+    let items: Vec<_> = group
+        .sections
+        .iter()
+        .flat_map(|s| s.items.iter())
+        .filter(|i| offers(i.command) && (hit(i.label) || i.actions.iter().any(action_hit)))
+        .map(|i| i.label)
+        .collect();
     (!items.is_empty()).then_some(items)
 }
 
@@ -78,8 +85,13 @@ pub fn show(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
                 ui.set_width(ui.available_width());
                 let mut any = false;
                 for category in TOOL_CATEGORIES {
-                    let found: Vec<_> =
-                        category.groups.iter().filter_map(|id| catalog::group(id)).filter_map(|g| matches(&query, g).map(|m| (g, m))).collect();
+                    let found: Vec<_> = category
+                        .groups
+                        .iter()
+                        .filter(|id| app.offers_group(id))
+                        .filter_map(|id| catalog::group(id))
+                        .filter_map(|g| matches(&query, g, |c| app.offers(c)).map(|m| (g, m)))
+                        .collect();
                     if found.is_empty() {
                         continue;
                     }
@@ -171,16 +183,16 @@ mod tests {
 
     #[test]
     fn search_matches_tool_names_and_their_items() {
-        assert_eq!(matches("", group("organize")), Some(Vec::new()), "an empty query shows everything");
-        assert_eq!(matches("organize", group("organize")), Some(Vec::new()), "the tool's own name");
-        let rotate = matches("rotate", group("organize")).expect("Organize pages lists Rotate");
+        assert_eq!(matches("", group("organize"), |_| true), Some(Vec::new()), "an empty query shows everything");
+        assert_eq!(matches("organize", group("organize"), |_| true), Some(Vec::new()), "the tool's own name");
+        let rotate = matches("rotate", group("organize"), |_| true).expect("Organize pages lists Rotate");
         assert!(!rotate.is_empty() && rotate.iter().all(|l| l.to_lowercase().contains("rotate")), "{rotate:?}");
-        assert_eq!(matches("no such tool anywhere", group("organize")), None);
+        assert_eq!(matches("no such tool anywhere", group("organize"), |_| true), None);
     }
 
     #[test]
     fn search_finds_an_entry_by_its_menus_commands() {
-        let found = matches("remove watermark", group("edit")).expect("Watermark's menu has Remove watermark");
+        let found = matches("remove watermark", group("edit"), |_| true).expect("Watermark's menu has Remove watermark");
         assert!(found.contains(&"Watermark"), "{found:?}");
     }
 

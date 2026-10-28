@@ -53,7 +53,6 @@ mod compare_ui;
 pub mod control;
 mod create_multiple_ui;
 mod create_ui;
-mod credits;
 mod crop;
 mod drag_pointer;
 mod export_ui;
@@ -148,7 +147,6 @@ mod system_fonts;
 mod tab_context;
 pub mod theme;
 pub mod ui_scale;
-pub mod updates;
 mod wheel_boost;
 mod wheel_pager;
 mod widgets;
@@ -695,9 +693,6 @@ pub struct PdfCraftApp {
     /// Point size for new Fill & Sign text and dates, kept across launches.
     pub fill_text_size: f64,
     pub dialog: Option<Dialog>,
-    /// How to ask for the latest release (the desktop app sets it; see `updates`).
-    pub update_source: Option<updates::UpdateSource>,
-    pub(crate) updates: updates::Updates,
     /// Lists the Print dialog's printers in the background (the desktop app sets it; see
     /// [`PrinterSource`]).
     pub printer_source: Option<PrinterSource>,
@@ -997,6 +992,9 @@ pub struct PdfCraftApp {
     pub pending_full_screen: Option<DocId>,
     /// An absolute GoToR target waiting for approval, before any target-file I/O (#1364).
     pub pending_remote_link: Option<PendingRemoteLink>,
+    /// Offer only [`pdfcraft_engine::reader`]'s commands and tool groups; the rest is hidden
+    /// and refused.
+    pub reader_profile: bool,
 }
 
 /// Where in a document a request to open an address came from.
@@ -1130,8 +1128,6 @@ impl PdfCraftApp {
             flatten_fill_sign_on_save: false,
             fill_text_size: fill_sign::TEXT_SIZE,
             dialog: None,
-            update_source: None,
-            updates: updates::Updates::default(),
             printer_source: None,
             options_source: None,
             print_tasks: print_ui::PrintTasks::default(),
@@ -1270,6 +1266,7 @@ impl PdfCraftApp {
             pending_link: None,
             pending_full_screen: None,
             pending_remote_link: None,
+            reader_profile: false,
             protect_draft: Default::default(),
             boxes_draft: Default::default(),
             marks_draft: Default::default(),
@@ -2276,7 +2273,6 @@ impl PdfCraftApp {
             || self.unlock_prompt.is_some()
             || self.pending_link.is_some()
             || self.pending_remote_link.is_some()
-            || self.updates.open
     }
 
     /// Enable the UI control channel on `ctx` (opt-in; see [`control`]). Returns a client that
@@ -2471,9 +2467,64 @@ impl PdfCraftApp {
         self.pending_panel_reveals.push(docking::Panel::Tools);
     }
 
+    /// Whether the command `id` is offered: always, unless the reader profile leaves it out.
+    pub(crate) fn offers(&self, id: &str) -> bool {
+        !self.reader_profile || pdfcraft_engine::reader::allows_command(id)
+    }
+
+    /// Whether the tool group `id` is offered: always, unless the reader profile leaves it out.
+    pub(crate) fn offers_group(&self, id: &str) -> bool {
+        !self.reader_profile || pdfcraft_engine::reader::allows_group(id)
+    }
+
+    /// Whether the workspace `mode` is offered: Edit and Convert belong to tool groups the reader
+    /// profile may leave out.
+    pub(crate) fn offers_mode(&self, mode: Mode) -> bool {
+        match mode {
+            Mode::Edit => self.offers_group("edit"),
+            Mode::Convert => self.offers_group("export"),
+            Mode::AllTools | Mode::Read | Mode::Sign => true,
+        }
+    }
+
+    /// Whether the side panel `panel` is offered: the accessibility and compare panels belong to
+    /// commands the reader profile may leave out.
+    pub(crate) fn offers_panel(&self, panel: RightPanel) -> bool {
+        match panel {
+            RightPanel::Accessibility => self.offers("a11y.check"),
+            RightPanel::Tags => self.offers("a11y.tags"),
+            RightPanel::Compare => self.offers("doc.compare"),
+            _ => true,
+        }
+    }
+
+    /// Whether the page tool `tool` is offered: the reader profile keeps viewing, comment, stamp,
+    /// Fill & Sign, measure and digital signing tools, and leaves out editing ones.
+    pub(crate) fn offers_quick(&self, tool: QuickTool) -> bool {
+        !self.reader_profile
+            || matches!(
+                tool,
+                QuickTool::Select
+                    | QuickTool::Hand
+                    | QuickTool::MarqueeZoom
+                    | QuickTool::Snapshot
+                    | QuickTool::ColumnSelect
+                    | QuickTool::Comment(_)
+                    | QuickTool::Measure(_)
+                    | QuickTool::Fill(_)
+                    | QuickTool::Stamp(_)
+                    | QuickTool::CustomStamp(_)
+                    | QuickTool::SignArea { certify: false }
+            )
+    }
+
     /// Enter a tool from the catalogue, Home, palette or control channel. Organize is a
     /// workspace, so opening its panel also opens the page grid (without toggling it off).
+    /// A tool group the reader profile leaves out is ignored.
     pub(crate) fn select_tool(&mut self, id: &'static str) {
+        if !self.offers_group(id) {
+            return;
+        }
         // The tool's panel shows, not the expanded All tools view over it.
         self.all_tools_full = false;
         self.left = LeftPanel::Tool(id);
@@ -2490,6 +2541,7 @@ impl PdfCraftApp {
     /// Select the workspace and its matching tool panel, just like the mode bar. The tool goes
     /// with the workspace as [`Self::enter_mode`] sets it.
     pub(crate) fn select_mode(&mut self, mode: Mode) {
+        let mode = if self.offers_mode(mode) { mode } else { Mode::AllTools };
         self.enter_mode(mode);
         self.reveal_tools();
         if let Some(view) = self.active.and_then(|i| self.views.get_mut(i)) {
@@ -2509,6 +2561,7 @@ impl PdfCraftApp {
     /// every paragraph and image on the page gets its box and is editable with one click. Leaving
     /// Edit puts the editing tools down again and applies a paragraph still open in the editor.
     pub(crate) fn enter_mode(&mut self, mode: Mode) {
+        let mode = if self.offers_mode(mode) { mode } else { Mode::AllTools };
         self.mode = mode;
         // Another workspace puts the expanded All tools view away.
         if mode != Mode::AllTools {
@@ -2905,7 +2958,7 @@ impl PdfCraftApp {
                 self.animation_effects = motion::AnimationEffects::parse(value).ok_or("animation_effects must be system, on, or off")?;
             }
             ("panel", _) => {
-                self.right = match value {
+                let panel = match value {
                     "comments" => Some(RightPanel::Comments),
                     "bookmarks" => Some(RightPanel::Bookmarks),
                     "pages" => Some(RightPanel::Pages),
@@ -2919,10 +2972,14 @@ impl PdfCraftApp {
                     "compare" => Some(RightPanel::Compare),
                     "none" => None,
                     other => return Err(format!("unknown panel {other}")),
+                };
+                if panel.is_some_and(|p| !self.offers_panel(p)) {
+                    return Err(format!("panel {value} is not available in this version"));
                 }
+                self.right = panel;
             }
             ("mode", _) => {
-                let mode = Mode::parse(value).unwrap_or(Mode::AllTools);
+                let mode = Mode::parse(value).filter(|m| self.offers_mode(*m)).unwrap_or(Mode::AllTools);
                 self.mode_override = Some(mode);
                 self.mode = mode;
                 // As switch_mode: another workspace puts the expanded All tools view away.
@@ -2947,6 +3004,25 @@ impl PdfCraftApp {
                 self.all_tools_full = false;
             }
             ("dialog", _) => {
+                // The reader profile opens only the dialogs of its own commands.
+                let reader_dialog = matches!(
+                    value,
+                    "properties"
+                        | "security"
+                        | "fonts"
+                        | "custom"
+                        | "advanced"
+                        | "space-audit"
+                        | "shortcuts"
+                        | "preferences"
+                        | "signature"
+                        | "sign"
+                        | "about"
+                        | "none"
+                );
+                if self.reader_profile && !reader_dialog {
+                    return Err(format!("dialog {value} is not available in this version"));
+                }
                 self.dialog = match value {
                     "properties" => Some(Dialog::Properties(PropsTab::Description)),
                     "security" => Some(Dialog::Properties(PropsTab::Security)),
@@ -3125,7 +3201,7 @@ impl PdfCraftApp {
             ("notice", Some(v)) => v.notice_dismissed = value == "off",
             ("quick", _) => {
                 // `--quick select|hand|note|freetext|highlight|underline|strikeout|ink|line|arrow|square|circle`
-                self.quick_tool = match value {
+                let tool = match value {
                     "select" => QuickTool::Select,
                     measure if measure.starts_with("measure-") => QuickTool::Measure(
                         measure_ui::Tool::from_name(measure.trim_start_matches("measure-")).ok_or_else(|| format!("unknown tool {measure}"))?,
@@ -3167,6 +3243,10 @@ impl PdfCraftApp {
                         QuickTool::Comment(t)
                     }
                 };
+                if !self.offers_quick(tool) {
+                    return Err(format!("tool {value} is not available in this version"));
+                }
+                self.quick_tool = tool;
             }
             ("author", _) => self.comment_prefs.author = value.to_string(),
             ("comment-tool-pinned", _) => {
@@ -3272,7 +3352,6 @@ impl PdfCraftApp {
             let covered = self.pending_link.is_some()
                 || self.pending_remote_link.is_some()
                 || self.pending_full_screen.is_some()
-                || self.updates.open
                 || self.dialog.is_some()
                 || self.unlock_prompt.is_some();
             if !covered && let Some(choice) = dialogs::save_prompt_key(ctx, &mut self.save_prompt_button) {
@@ -3329,10 +3408,22 @@ impl PdfCraftApp {
             }
             canvas::shortcuts(&mut self.views[i], ctx, self.scroll_speed);
             self.copy_key(i, ctx);
-            self.paste_image_key(i, ctx, pasted);
+            if self.offers("edit.image") {
+                self.paste_image_key(i, ctx, pasted);
+            }
             self.image_pick_keys(i, ctx);
         }
     }
+}
+
+fn reader_profile_id() -> egui::Id {
+    egui::Id::new("pdfcraft-reader-profile")
+}
+
+/// [`PdfCraftApp::offers`] for widgets drawn without the app: the profile is copied into `ctx`
+/// at the start of every frame.
+pub(crate) fn offered(ctx: &egui::Context, id: &str) -> bool {
+    !ctx.data(|d| d.get_temp::<bool>(reader_profile_id())).unwrap_or(false) || pdfcraft_engine::reader::allows_command(id)
 }
 
 /// Why nothing can be copied out of the document: its security doesn't allow it (Table 22,
@@ -3612,7 +3703,6 @@ impl eframe::App for PdfCraftApp {
                 report(dirty);
             }
         }
-        self.poll_updates();
         self.poll_print();
         // Shortcuts deferred last frame: the text field has taken that frame's typing since.
         let deferred = std::mem::take(&mut self.deferred_commands);
@@ -3651,6 +3741,7 @@ impl eframe::App for PdfCraftApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         let ctx = ui.ctx().clone();
         i18n::set_current(i18n::Lang::from_pref(&self.language));
+        ctx.data_mut(|d| d.insert_temp(reader_profile_id(), self.reader_profile));
         // Fonts registered via set_fonts only take effect next frame; named families would panic now.
         if !self.fonts_ready {
             ctx.request_repaint();

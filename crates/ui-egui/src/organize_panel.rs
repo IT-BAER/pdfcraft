@@ -66,6 +66,8 @@ pub(crate) fn panel(app: &mut PdfCraftApp, ui: &mut egui::Ui, t: &Tokens) {
     ui.separator();
     ui.add_space(6.0);
 
+    let ctx = ui.ctx().clone();
+    let offered = |id: &str| crate::offered(&ctx, id);
     egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
         ui.add_space(2.0);
         widgets::section_title(ui, tl!("Pages selected"));
@@ -119,26 +121,26 @@ pub(crate) fn panel(app: &mut PdfCraftApp, ui: &mut egui::Ui, t: &Tokens) {
             // Insert ▸: a blank page, pages from a file, or copies of the selected pages.
             let insert = row(ui, t, "file-plus-2", tl!("Insert"), Availability::Ready, true);
             egui::Popup::menu(&insert).align(egui::RectAlign::RIGHT_START).gap(6.0).show(|ui| {
-                if ui.button(tl!("Insert a blank page after the selection")).clicked() {
+                if offered("page.insert_blank") && ui.button(tl!("Insert a blank page after the selection")).clicked() {
                     let crop = info.pages.get(last).map_or([0.0, 0.0, 612.0, 792.0], |p| p.crop);
                     let (w, h) = ((crop[2] - crop[0]).abs().max(1.0) as f64, (crop[3] - crop[1]).abs().max(1.0) as f64);
                     act = Some(Act::Edit(Box::new(Edit::InsertBlankPage { at: last.saturating_add(1), width: w, height: h })));
                 }
-                if ui.button(tl!("Insert pages from a file…")).clicked() {
+                if offered("page.insert") && ui.button(tl!("Insert pages from a file…")).clicked() {
                     act = Some(Act::View(ViewAction::InsertFromFile));
                 }
-                if ui.button(tl!("Duplicate pages")).clicked() {
+                if offered("page.duplicate") && ui.button(tl!("Duplicate pages")).clicked() {
                     act = Some(Act::Command("page.duplicate"));
                 }
             });
-            if row(ui, t, "replace", tl!("Replace"), Availability::Ready, false).clicked() {
+            if offered("page.replace") && row(ui, t, "replace", tl!("Replace"), Availability::Ready, false).clicked() {
                 act = Some(Act::View(ViewAction::ReplacePages));
             }
-            if row(ui, t, "scissors", tl!("Split"), Availability::Ready, false).clicked() {
+            if offered("page.split") && row(ui, t, "scissors", tl!("Split"), Availability::Ready, false).clicked() {
                 act = Some(Act::View(ViewAction::Split));
             }
         });
-        if row(ui, t, "hash", tl!("Bates numbering"), Availability::Ready, false).clicked() {
+        if offered("edit.bates") && row(ui, t, "hash", tl!("Bates numbering"), Availability::Ready, false).clicked() {
             act = Some(Act::Command("edit.bates"));
         }
         divider(ui, t);
@@ -149,17 +151,23 @@ pub(crate) fn panel(app: &mut PdfCraftApp, ui: &mut egui::Ui, t: &Tokens) {
             ("file-text", "Page templates", Availability::Later, None),
             ("printer", "Print pages", Availability::Ready, Some("print.dialog")),
         ] {
+            // A row without a command yet is a Pro placeholder.
+            if !offered(command.unwrap_or_default()) {
+                continue;
+            }
             if row(ui, t, icon, tl!(label), availability, false).clicked()
                 && let Some(command) = command
             {
                 act = Some(Act::Command(command));
             }
         }
-        divider(ui, t);
-        if row(ui, t, "tag", tl!("Page labels"), Availability::Ready, false).clicked() {
-            act = Some(Act::Command("page.number"));
+        if offered("page.number") {
+            divider(ui, t);
+            if row(ui, t, "tag", tl!("Page labels"), Availability::Ready, false).clicked() {
+                act = Some(Act::Command("page.number"));
+            }
+            row(ui, t, "info", tl!("Page properties"), Availability::Later, false);
         }
-        row(ui, t, "info", tl!("Page properties"), Availability::Later, false);
     });
 
     if close {

@@ -261,7 +261,14 @@ impl PdfCraftApp {
             // Nor may a shortcut pressed with it (⌘S right after Enter) run behind the refusal.
             self.deferred_commands.clear();
         }
-        match self.views.get_mut(i).and_then(|v| v.pending_action.take()) {
+        let action = self.views.get_mut(i).and_then(|v| v.pending_action.take());
+        if let Some(id) = action.as_ref().and_then(crate::canvas::ViewAction::command)
+            && !self.offers(id)
+        {
+            self.notify_tr("Not available in this version");
+            return applied;
+        }
+        match action {
             Some(crate::canvas::ViewAction::InsertFromFile) => self.insert_from_file_dialog(),
             Some(crate::canvas::ViewAction::InsertFromFileAt(at)) => self.insert_from_file_at(Some(at)),
             Some(crate::canvas::ViewAction::ReplacePages) => self.replace_pages_dialog(),

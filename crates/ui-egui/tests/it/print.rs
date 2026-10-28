@@ -85,6 +85,21 @@ fn current_print_page_saves_the_viewed_page_when_labels_restart() {
     }
 }
 
+/// Without a printer source the dialog reads no spooler: the machine's own printers, and their
+/// drivers' dialogs, stay out of the tests (the desktop app sets a source; see `system_printers`).
+#[test]
+fn print_without_a_source_offers_save_as_pdf_only() {
+    let mut h = harness();
+    assert!(h.state().printer_source.is_none());
+    assert!(h.state_mut().execute("print.dialog"));
+    h.run_steps(3);
+    assert_eq!(h.state().dialog, Some(Dialog::Print));
+    let d = &h.state().print_draft;
+    assert!(d.printers.is_empty(), "listed the spooler's printers: {:?}", d.printers);
+    assert!(!d.printers_loading);
+    assert_eq!(d.printer, None);
+}
+
 #[test]
 fn print_dialog_lays_out_sheets_and_saves_a_pdf() {
     let mut h = harness();
