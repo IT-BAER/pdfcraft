@@ -694,18 +694,17 @@ fn card_appearance(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tokens, ctx: &m
 fn card_documents_and_view(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tokens, ctx: &mut PrefSearchContext) {
     ui.horizontal(|ui| {
         ctx.label_primary(ui, tl!("Default workspace mode"), t);
-        ctx.pill_choice(
-            ui,
-            t,
-            &mut app.default_mode,
-            &[
-                (crate::Mode::AllTools, tl!("All tools")),
-                (crate::Mode::Read, tl!("Read")),
-                (crate::Mode::Edit, tl!("Edit")),
-                (crate::Mode::Convert, tl!("Convert")),
-                (crate::Mode::Sign, tl!("E-Sign")),
-            ],
-        );
+        let modes: Vec<_> = [
+            (crate::Mode::AllTools, tl!("All tools")),
+            (crate::Mode::Read, tl!("Read")),
+            (crate::Mode::Edit, tl!("Edit")),
+            (crate::Mode::Convert, tl!("Convert")),
+            (crate::Mode::Sign, tl!("E-Sign")),
+        ]
+        .into_iter()
+        .filter(|&(mode, _)| app.offers_mode(mode))
+        .collect();
+        ctx.pill_choice(ui, t, &mut app.default_mode, &modes);
     });
     ctx.label_secondary(ui, tl!("Used when opening PDFs. An explicit launch or control mode takes precedence for the session."), t);
     ui.add_space(6.0);

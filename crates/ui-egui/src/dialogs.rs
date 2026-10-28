@@ -1,4 +1,4 @@
-//! Modal dialogs: Document Properties, Keyboard Shortcuts, About (with the Contributors and Models credits).
+//! Modal dialogs: Document Properties, Keyboard Shortcuts, About.
 
 use egui::{Align, Layout};
 
@@ -10,7 +10,6 @@ use crate::{CloseRequest, Dialog, PdfCraftApp, PropsTab, panels::human_size, wid
 pub(super) mod appearance;
 pub mod bookmark_styles_ui;
 pub(super) mod comment_props;
-pub(super) mod credits;
 pub(super) mod marks_ui;
 pub(super) mod pageboxes;
 pub(super) mod palette;
@@ -87,7 +86,6 @@ fn dialogs(app: &mut PdfCraftApp, ctx: &egui::Context) {
     link_prompt(app, ctx);
     remote_link_prompt(app, ctx);
     full_screen_prompt(app, ctx);
-    crate::updates::dialog(app, ctx);
     if app.dialog != Some(Dialog::WordCount) {
         app.word_count_draft.cancel();
     }
@@ -445,7 +443,7 @@ fn dialog_body(ui: &mut egui::Ui, app: &mut PdfCraftApp, dialog: Dialog, req: &m
             }
         }
         Dialog::About => {
-            if !dialog_about(ui, req) {
+            if !dialog_about(ui) {
                 return false;
             }
         }
@@ -664,7 +662,10 @@ fn dialog_properties(ui: &mut egui::Ui, app: &mut PdfCraftApp, req: &mut Pending
                 None => {
                     row(ui, "Security method", tl!("No security").to_string());
                     row(ui, "Restrictions", tl!("None — everything is allowed").to_string());
-                    if doc.allows_security_change() && ui.button(tl!("Protect using password…")).clicked() {
+                    if doc.allows_security_change()
+                        && crate::offered(ui.ctx(), "protect.password")
+                        && ui.button(tl!("Protect using password…")).clicked()
+                    {
                         req.link_command = Some("protect.password");
                     }
                 }
@@ -683,7 +684,7 @@ fn dialog_properties(ui: &mut egui::Ui, app: &mut PdfCraftApp, req: &mut Pending
                         },
                     );
                     // A restricted document asks for its permissions password first.
-                    if doc.allows_security_change() || doc.can_unlock() {
+                    if (doc.allows_security_change() || doc.can_unlock()) && crate::offered(ui.ctx(), "protect.password") {
                         ui.horizontal(|ui| {
                             if doc.can_unlock() && ui.button(tl!("Unlock…")).clicked() {
                                 req.link_command = Some("protect.unlock");
@@ -1487,6 +1488,7 @@ fn dialog_shortcuts(ui: &mut egui::Ui) -> bool {
     // keys the document view handles itself.
     let mut rows: Vec<(String, String)> = pdfcraft_engine::commands::COMMANDS
         .iter()
+        .filter(|c| crate::offered(ui.ctx(), c.id))
         .filter_map(|c| c.shortcut.map(|k| (crate::commands::shortcut_label(ui.ctx(), k), tl!(c.label).trim_end_matches('…').to_string())))
         .collect();
     let key = |s: pdfcraft_engine::commands::Shortcut| crate::commands::shortcut_label(ui.ctx(), s);
@@ -1534,45 +1536,20 @@ fn dialog_shortcuts(ui: &mut egui::Ui) -> bool {
 }
 
 /// `Dialog::About` content. Returns `false` when it has its own buttons and no footer is wanted.
-fn dialog_about(ui: &mut egui::Ui, req: &mut Pending) -> bool {
+fn dialog_about(ui: &mut egui::Ui) -> bool {
     let t = Tokens::get(ui.ctx());
-    // Tabs About · Contributors · Models.
-    let tab_id = egui::Id::unique("about_tab");
-    let mut tab = ui.data_mut(|d| d.get_temp::<u8>(tab_id)).unwrap_or(0);
-    ui.horizontal_wrapped(|ui| {
-        for (i, label) in ["About", "Contributors", "Models"].into_iter().enumerate() {
-            let i = i as u8;
-            if widgets::mode_tab(ui, tl!(label), tab == i).clicked() {
-                tab = i;
-            }
-        }
-    });
-    ui.data_mut(|d| d.insert_temp(tab_id, tab));
-    ui.separator();
-    match tab {
-        1 => crate::credits::contributors_ui(ui),
-        2 => crate::credits::models_ui(ui),
-        _ => {
-            ui.label(egui::RichText::new("PdfCraft").font(theme::semibold(20.0)));
-            ui.label(crate::i18n::fmt(tl!("Version {v}"), &[("v", &pdfcraft_engine::build_info::version())]));
-            ui.add_space(6.0);
-            ui.label(tl!("A clean-room, open-source PDF application written in Rust. MIT OR Apache-2.0."));
-            ui.label(
-                egui::RichText::new(
-                    "Rendering: hayro (bootstrap) · UI: egui · Icons: Lucide (ISC) · Fonts: Inter, JetBrains Mono, Dancing Script (OFL)",
-                )
-                .color(t.text_muted)
-                .small(),
-            );
-            ui.add_space(12.0);
-            // Plain-text credit: forks may not show the ArtCraft marks (upstream docs/brand/LICENSE-brand.txt).
-            ui.label(egui::RichText::new("Based on PdfCraft by the ArtCraft team and community.").color(t.text_muted));
-            ui.add_space(6.0);
-            if let Some(cmd) = widgets::community_links(ui) {
-                req.link_command = Some(cmd);
-            }
-        }
-    }
+    ui.label(egui::RichText::new("PdfCraft").font(theme::semibold(20.0)));
+    ui.label(crate::i18n::fmt(tl!("Version {v}"), &[("v", &pdfcraft_engine::build_info::version())]));
+    ui.add_space(6.0);
+    ui.label(tl!("Licensed under MIT or Apache-2.0."));
+    ui.label(
+        egui::RichText::new("Rendering: hayro (bootstrap) · UI: egui · Icons: Lucide (ISC) · Fonts: Inter, JetBrains Mono, Dancing Script (OFL)")
+            .color(t.text_muted)
+            .small(),
+    );
+    ui.add_space(12.0);
+    // Plain-text credit: forks may not show the ArtCraft marks (upstream docs/brand/LICENSE-brand.txt).
+    ui.label(egui::RichText::new("Based on PdfCraft by the ArtCraft team and community.").color(t.text_muted));
     true
 }
 
@@ -1607,9 +1584,13 @@ fn dialog_pin_tool(ui: &mut egui::Ui, app: &mut PdfCraftApp, req: &mut Pending) 
     let query = app.pin_tool_search.trim().to_lowercase();
     egui::ScrollArea::vertical().max_height(380.0).auto_shrink([false, true]).show(ui, |ui| {
         let mut toggle = None;
-        for g in pdfcraft_engine::catalog::TOOL_GROUPS {
+        for g in pdfcraft_engine::catalog::TOOL_GROUPS.iter().filter(|g| app.offers_group(g.id)) {
             let label = tl!(g.label);
-            let blurb = g.sections.first().map(|s| s.items.iter().take(4).map(|i| tl!(i.label)).collect::<Vec<_>>().join(" • ")).unwrap_or_default();
+            let blurb = g
+                .sections
+                .first()
+                .map(|s| s.items.iter().filter(|i| app.offers(i.command)).take(4).map(|i| tl!(i.label)).collect::<Vec<_>>().join(" • "))
+                .unwrap_or_default();
             if !query.is_empty()
                 && !label.to_lowercase().contains(&query)
                 && !blurb.to_lowercase().contains(&query)

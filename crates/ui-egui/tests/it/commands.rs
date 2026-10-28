@@ -163,6 +163,7 @@ fn every_registered_command_is_implemented() {
         // open a real file dialog on the desktop running the tests: answer it as a cancel.
         app.pick_override = Some(Vec::new());
         assert!(app.execute(spec.id), "{} is registered but not implemented (or wrongly disabled)", spec.id);
+        assert_eq!(app.last_opened_url, None, "{} opened a web address", spec.id);
     }
 }
 

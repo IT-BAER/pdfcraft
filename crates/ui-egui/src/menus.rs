@@ -223,8 +223,7 @@ const SIGN: &[&str] = &[
     "sign.panel",
 ];
 const WINDOW: &[&str] = &["view.next_tab", "view.previous_tab"];
-const HELP: &[&str] =
-    &["help.shortcuts", SEP, "help.app_page", "help.github", SEP, "help.check_updates", SEP, "help.about"];
+const HELP: &[&str] = &["help.shortcuts", SEP, "help.about"];
 
 /// A registry shortcut as a craft-keymap chord: `command` is ⌘ (Ctrl elsewhere) and `mac_ctrl`
 /// the Control key on macOS. `None` for a key craft-keymap doesn't name.
@@ -278,8 +277,11 @@ impl PdfCraftApp {
     /// that is the [`Gate`]'s job ([`PdfCraftApp::menu_gate`]).
     pub fn menu_bar(&self, ctx: &egui::Context) -> MenuBar {
         let mut used: Vec<&str> = Vec::new();
+        // A registry command the reader profile leaves out is not listed; menu-only items stay.
+        let listed = |id: &str| commands::command(id).is_none() || self.offers(id);
         let list = |ids: &[&'static str], used: &mut Vec<&'static str>| -> Vec<Node> {
             ids.iter()
+                .filter(|&&id| id == SEP || listed(id))
                 .map(|&id| {
                     if id == SEP {
                         return Node::Separator;
@@ -328,6 +330,7 @@ impl PdfCraftApp {
         let mut sign = vec![Node::submenu(
             tl!("Fill & Sign"),
             FILL.iter()
+                .filter(|(id, _)| listed(id))
                 .map(|&(id, label)| {
                     used.push(id);
                     self.menu_item(id, Some(tl!(label)))
@@ -349,6 +352,7 @@ impl PdfCraftApp {
             tl!("Side panels"),
             PANELS
                 .iter()
+                .filter(|(p, ..)| self.offers_panel(*p))
                 .map(|(_, name, label)| {
                     Item::new(CommandRef::with_params(PANEL, serde_json::json!({ "panel": name })), tl!(label)).radio(false).into()
                 })
@@ -425,7 +429,7 @@ impl PdfCraftApp {
     fn tools_menu(&self, used: &[&str]) -> Vec<Node> {
         TOOL_GROUPS
             .iter()
-            .filter(|g| g.availability == Availability::Ready)
+            .filter(|g| g.availability == Availability::Ready && self.offers_group(g.id))
             .map(|group| {
                 let mut nodes = Vec::new();
                 let mut seen: Vec<&str> = Vec::new();
@@ -434,7 +438,7 @@ impl PdfCraftApp {
                     for tool in section.items.iter().filter(|t| t.availability == Availability::Ready) {
                         let actions: &[&'static str] = if tool.actions.is_empty() { std::slice::from_ref(&tool.command) } else { tool.actions };
                         for &id in actions {
-                            if commands::command(id).is_none() || used.contains(&id) || seen.contains(&id) {
+                            if commands::command(id).is_none() || !self.offers(id) || used.contains(&id) || seen.contains(&id) {
                                 continue;
                             }
                             seen.push(id);
@@ -488,7 +492,7 @@ impl PdfCraftApp {
                 PASTE => organize && self.page_clipboard.is_some() && enabled_id("page.paste"),
                 SELECT_ALL | DELETE => has_doc,
                 ACTUAL_SIZE | PAGE_LEVEL | FIT_WIDTH | FIT_HEIGHT | ZOOM_IN | ZOOM_OUT | ROTATE_CW | ROTATE_CCW => has_doc,
-                PANEL => panel(command).is_some(),
+                PANEL => panel(command).is_some_and(|p| self.offers_panel(p)),
                 id => enabled_id(id),
             };
         let checked = match command.id.as_str() {

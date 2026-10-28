@@ -24,8 +24,8 @@ pub fn left_panel(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
             _ if app.active.is_some() && crate::organize_panel::showing(app) => crate::organize_panel::panel(app, ui, &t),
             LeftPanel::AllTools => all_tools(app, ui, &t),
             LeftPanel::Tool(id) => match catalog::group(id) {
-                Some(g) => tool_detail(app, ui, &t, g),
-                None => app.left = LeftPanel::AllTools,
+                Some(g) if app.offers_group(g.id) => tool_detail(app, ui, &t, g),
+                _ => app.left = LeftPanel::AllTools,
             },
             LeftPanel::CalculationOrder => crate::calc_order_ui::panel(app, ui, &t),
         },
@@ -81,8 +81,9 @@ fn all_tools(app: &mut PdfCraftApp, ui: &mut egui::Ui, t: &Tokens) {
     egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
         clear_of_scrollbar(ui);
         ui.add_space(2.0);
-        let shown = if app.all_tools_expanded { TOOL_GROUPS.len() } else { COLLAPSED_TOOLS.min(TOOL_GROUPS.len()) };
-        for g in &TOOL_GROUPS[..shown] {
+        let groups: Vec<&'static ToolGroup> = TOOL_GROUPS.iter().filter(|g| app.offers_group(g.id)).collect();
+        let shown = if app.all_tools_expanded { groups.len() } else { COLLAPSED_TOOLS.min(groups.len()) };
+        for g in groups.iter().take(shown) {
             let (resp, pin_clicked) = tool_row(ui, t, g, app.is_tool_pinned(g.id));
             if pin_clicked {
                 app.toggle_pin_tool(g.id);
@@ -92,14 +93,15 @@ fn all_tools(app: &mut PdfCraftApp, ui: &mut egui::Ui, t: &Tokens) {
         }
         ui.add_space(4.0);
         let more = if app.all_tools_expanded { "View less" } else { "View more" };
-        if ui
-            .add(
-                egui::Label::new(egui::RichText::new(tl!(more)).color(t.accent_text).font(theme::medium(13.0)))
-                    .selectable(false)
-                    .sense(Sense::click()),
-            )
-            .on_hover_cursor(egui::CursorIcon::PointingHand)
-            .clicked()
+        if groups.len() > COLLAPSED_TOOLS
+            && ui
+                .add(
+                    egui::Label::new(egui::RichText::new(tl!(more)).color(t.accent_text).font(theme::medium(13.0)))
+                        .selectable(false)
+                        .sense(Sense::click()),
+                )
+                .on_hover_cursor(egui::CursorIcon::PointingHand)
+                .clicked()
         {
             app.all_tools_expanded = !app.all_tools_expanded;
         }
@@ -250,9 +252,15 @@ fn tool_detail(app: &mut PdfCraftApp, ui: &mut egui::Ui, t: &Tokens, g: &'static
         clear_of_scrollbar(ui);
         ui.add_space(2.0);
         for s in g.sections {
+            if !s.items.iter().any(|i| app.offers(i.command)) {
+                continue;
+            }
             widgets::section_title(ui, tl!(s.title));
             for item in s.items {
                 if g.id == "fill_sign" && (item.command.starts_with("sign.fill.signature") || item.command.starts_with("sign.fill.initials")) {
+                    continue;
+                }
+                if !app.offers(item.command) {
                     continue;
                 }
                 let (rect, resp) = ui.allocate_exact_size(vec2(ui.available_width(), 34.0), Sense::click());

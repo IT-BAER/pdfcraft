@@ -147,7 +147,7 @@ pub(super) fn actions_menu(
     egui::Popup::menu(resp).show(|ui| {
         ui.set_min_width(180.0);
         for (n, id) in item.actions.iter().enumerate() {
-            let Some(spec) = pdfcraft_engine::commands::command(id) else { continue };
+            let Some(spec) = pdfcraft_engine::commands::command(id).filter(|c| app.offers(c.id)) else { continue };
             // Add stays usable with no document open: it asks for a file first.
             let enabled = (n == 0 && app.active.is_none()) || app.command_enabled(spec);
             let label = crate::i18n::menu_label(spec.id, spec.label);

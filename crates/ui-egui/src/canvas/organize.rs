@@ -166,6 +166,11 @@ fn organize_toolbar(view: &mut DocView, info: &DocInfo, editable: bool, dirty: b
             let any = |f: &dyn Fn(&egui::Event) -> bool| i.events.iter().any(f);
             (any(&|e| matches!(e, egui::Event::Copy)), any(&|e| matches!(e, egui::Event::Cut)), any(&|e| matches!(e, egui::Event::Paste(_))))
         });
+        let (copy, cut, paste) = (
+            copy && crate::offered(ui.ctx(), "page.copy"),
+            cut && crate::offered(ui.ctx(), "page.cut"),
+            paste && crate::offered(ui.ctx(), "page.paste"),
+        );
         if copy || cut {
             view.pending_action = Some(ViewAction::CopyPages { cut });
         }
@@ -427,24 +432,29 @@ pub(super) fn organize_grid(
                         view.pending_action = Some(ViewAction::Extract);
                         ui.close();
                     }
-                    if ui.button(tl!("Split document…")).clicked() {
+                    let ctx = ui.ctx().clone();
+                    let offered = |id| crate::offered(&ctx, id);
+                    if offered("page.split") && ui.button(tl!("Split document…")).clicked() {
                         view.pending_action = Some(ViewAction::SplitBeforeSelected);
                         ui.close();
                     }
-                    if ui.add_enabled(editable, egui::Button::new(tl!("Replace pages…"))).clicked() {
+                    if offered("page.replace") && ui.add_enabled(editable, egui::Button::new(tl!("Replace pages…"))).clicked() {
                         view.pending_action = Some(ViewAction::ReplacePages);
                         ui.close();
                     }
-                    ui.separator();
-                    if ui.add_enabled(editable, egui::Button::new(tl!("Cut"))).clicked() {
+                    let (cut, copy, paste) = (offered("page.cut"), offered("page.copy"), offered("page.paste"));
+                    if cut || copy || paste {
+                        ui.separator();
+                    }
+                    if cut && ui.add_enabled(editable, egui::Button::new(tl!("Cut"))).clicked() {
                         view.pending_action = Some(ViewAction::CopyPages { cut: true });
                         ui.close();
                     }
-                    if ui.button(tl!("Copy")).clicked() {
+                    if copy && ui.button(tl!("Copy")).clicked() {
                         view.pending_action = Some(ViewAction::CopyPages { cut: false });
                         ui.close();
                     }
-                    if ui.add_enabled(editable, egui::Button::new(tl!("Paste after"))).clicked() {
+                    if paste && ui.add_enabled(editable, egui::Button::new(tl!("Paste after"))).clicked() {
                         view.pending_action = Some(ViewAction::PastePages);
                         ui.close();
                     }
@@ -474,7 +484,7 @@ pub(super) fn organize_grid(
         // While dragging: the gap the pages would go to, drawn as a bar.
         if let (Some(pages), Some(p)) = (view.org_drag.clone(), ui.input(|i| i.pointer.hover_pos())) {
             // Ctrl (Option on macOS) held over the drop copies the pages; see #2997.
-            let copying = copy_modifier(ui.ctx(), &ui.input(|i| i.modifiers));
+            let copying = copy_modifier(ui.ctx(), &ui.input(|i| i.modifiers)) && crate::offered(ui.ctx(), "page.duplicate");
             if let Some(gap) = drop_gap(&cells, p) {
                 let x = match cells.iter().find(|(i, _)| *i == gap) {
                     Some((_, r)) => r.left() + 3.0,

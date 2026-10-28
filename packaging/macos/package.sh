@@ -121,7 +121,7 @@ cp "$ROOT/assets/app-icon/pdfcraft.icns" "$APP/Contents/Resources/PdfCraft.icns"
 # Required embedded-font notices are independent of optional font inputs.
 cp "$ROOT/NOTICE" "$APP/Contents/Resources/NOTICE"
 # The standard About panel (PdfCraft menu > About PdfCraft) shows Credits.rtf under the version:
-# the website and Discord links the in-app About dialog has (#1287).
+# the licence line the in-app About dialog has.
 cp "$HERE/Credits.rtf" "$APP/Contents/Resources/Credits.rtf"
 copy_font_licences "$APP/Contents/Resources"
 # OCR models: the app finds them at Contents/MacOS/../Resources/models. Before signing, so the

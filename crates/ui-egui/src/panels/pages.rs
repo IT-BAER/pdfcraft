@@ -20,7 +20,7 @@ pub(super) fn page_tools(ui: &mut egui::Ui, enabled: bool) -> Option<&'static st
         egui::Popup::menu(&more).show(|ui| {
             ui.set_min_width(260.0);
             for (id, label) in tools {
-                let Some(spec) = pdfcraft_engine::commands::command(id) else { continue };
+                let Some(spec) = pdfcraft_engine::commands::command(id).filter(|c| crate::offered(ui.ctx(), c.id)) else { continue };
                 let item = egui::Button::image_and_text(icons::image(spec.icon, 16.0, ui.visuals().text_color()), label);
                 if ui.add(item).clicked() {
                     picked = Some(id);
@@ -194,27 +194,32 @@ pub(super) fn pages(ui: &mut egui::Ui, t: &Tokens, info: &DocInfo, view: &mut cr
                     view.pending_action = Some(crate::canvas::ViewAction::Extract);
                     ui.close();
                 }
-                if ui.button(tl!("Split document…")).clicked() {
+                let ctx = ui.ctx().clone();
+                let offered = |id| crate::offered(&ctx, id);
+                if offered("page.split") && ui.button(tl!("Split document…")).clicked() {
                     if view.selected.is_empty() {
                         view.select_pages(&[i]);
                     }
                     view.pending_action = Some(crate::canvas::ViewAction::SplitBeforeSelected);
                     ui.close();
                 }
-                if ui.add_enabled(editable, egui::Button::new(tl!("Replace pages…"))).clicked() {
+                if offered("page.replace") && ui.add_enabled(editable, egui::Button::new(tl!("Replace pages…"))).clicked() {
                     view.pending_action = Some(crate::canvas::ViewAction::ReplacePages);
                     ui.close();
                 }
-                ui.separator();
-                if ui.add_enabled(editable, egui::Button::new(tl!("Cut"))).clicked() {
+                let (cut, copy, paste) = (offered("page.cut"), offered("page.copy"), offered("page.paste"));
+                if cut || copy || paste {
+                    ui.separator();
+                }
+                if cut && ui.add_enabled(editable, egui::Button::new(tl!("Cut"))).clicked() {
                     view.pending_action = Some(crate::canvas::ViewAction::CopyPages { cut: true });
                     ui.close();
                 }
-                if ui.button(tl!("Copy")).clicked() {
+                if copy && ui.button(tl!("Copy")).clicked() {
                     view.pending_action = Some(crate::canvas::ViewAction::CopyPages { cut: false });
                     ui.close();
                 }
-                if ui.add_enabled(editable, egui::Button::new(tl!("Paste after"))).clicked() {
+                if paste && ui.add_enabled(editable, egui::Button::new(tl!("Paste after"))).clicked() {
                     view.pending_action = Some(crate::canvas::ViewAction::PastePages);
                     ui.close();
                 }

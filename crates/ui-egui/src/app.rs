@@ -19,6 +19,7 @@ mod prefs;
 mod window;
 
 pub(crate) use clipboard::{copy_refused, print_refused};
+pub(crate) use commands::offered;
 #[cfg(not(target_arch = "wasm32"))]
 pub(crate) use files::same_file;
 use frame::migrate_panel_state;
@@ -109,7 +110,6 @@ impl PdfCraftApp {
             fill_text_size: fill_sign::TEXT_SIZE,
             fill_text_color: [0.0; 3],
             dialog: None,
-            updates: updates::Updates::default(),
             printer_source: None,
             options_source: None,
             print_tasks: print_ui::PrintTasks::default(),
@@ -263,6 +263,7 @@ impl PdfCraftApp {
             pending_link: None,
             pending_full_screen: None,
             pending_remote_link: None,
+            reader_profile: false,
             protect_draft: Default::default(),
             text_style_draft: Default::default(),
             boxes_draft: Default::default(),
@@ -330,7 +331,6 @@ impl PdfCraftApp {
             || self.unlock_prompt.is_some()
             || self.pending_link.is_some()
             || self.pending_remote_link.is_some()
-            || self.updates.open
     }
 
     /// Show `msg` in the toast now, in place of whatever it showed. Script messages still waiting
@@ -370,7 +370,7 @@ impl PdfCraftApp {
 
     /// Pin a tool group to Home. Returns true if newly pinned.
     pub fn pin_tool(&mut self, id: &str) -> bool {
-        if pdfcraft_engine::catalog::group(id).is_none() {
+        if pdfcraft_engine::catalog::group(id).is_none() || !self.offers_group(id) {
             return false;
         }
         if !self.is_tool_pinned(id) {
@@ -573,7 +573,6 @@ impl eframe::App for PdfCraftApp {
                 report(dirty);
             }
         }
-        self.poll_updates();
         self.poll_print();
         // Shortcuts deferred last frame: the text field has taken that frame's typing since.
         let deferred = std::mem::take(&mut self.deferred_commands);
@@ -620,6 +619,7 @@ impl eframe::App for PdfCraftApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         let ctx = ui.ctx().clone();
         i18n::set_current(i18n::Lang::from_pref(&self.language));
+        ctx.data_mut(|d| d.insert_temp(commands::reader_profile_id(), self.reader_profile));
         // A language change switches stock chrome between LTR and RTL before anything is drawn.
         theme::sync_direction(&ctx);
         // Fonts registered via set_fonts only take effect next frame; named families would panic now.

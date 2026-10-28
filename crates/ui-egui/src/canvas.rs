@@ -740,6 +740,25 @@ pub enum ViewAction {
     CameraNext(&'static str),
 }
 
+impl ViewAction {
+    /// The registered command this action belongs to, for the reader profile's check. `None` when
+    /// the action runs one itself ([`Self::CameraNext`]).
+    pub(crate) fn command(&self) -> Option<&'static str> {
+        Some(match self {
+            Self::InsertFromFile | Self::InsertFromFileAt(_) => "page.insert",
+            Self::ReplacePages => "page.replace",
+            Self::Save => "file.save",
+            Self::Extract => "page.extract",
+            Self::Split | Self::SplitBeforeSelected => "page.split",
+            Self::CopyPages { cut: false } => "page.copy",
+            Self::CopyPages { cut: true } => "page.cut",
+            Self::PastePages => "page.paste",
+            Self::EnhanceCamera | Self::CancelCamera | Self::CameraRotate { .. } | Self::CameraLevel => "ocr.enhance_camera",
+            Self::CameraNext(_) => return None,
+        })
+    }
+}
+
 /// Default page right-click menu actions.
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) enum PageMenuAction {
@@ -1709,6 +1728,7 @@ fn page_tool_input(ui: &mut egui::Ui, view: &mut DocView, frame: &mut PageFrame<
     if tool == QuickTool::Select
         && resp.secondary_clicked()
         && can_modify
+        && crate::offered(ui.ctx(), "edit.link")
         && let Some(p) = pointer.filter(|p| xf.rect.contains(*p))
         && let Some(l) = doc.links().iter().find(|l| l.page == i && crate::link_ui::screen_rect(&xf, info, i, l.rect).expand(2.0).contains(p))
     {

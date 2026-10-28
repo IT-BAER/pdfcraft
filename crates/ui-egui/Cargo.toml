@@ -49,7 +49,6 @@ unicode-bidi = "0.3"
 skrifa = "0.44"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-craft-update = { workspace = true }
 # Control-channel tokens.
 getrandom = "0.4"
 # Create ▸ Clipboard (images; already in the tree through egui-winit).
@@ -88,7 +87,6 @@ js-sys = "0.3"
 web-sys = { version = "0.3", features = ["Window", "Document", "Element", "HtmlElement", "HtmlAnchorElement", "Blob", "BlobPropertyBag", "Url", "HtmlIFrameElement", "HtmlImageElement", "HtmlCollection", "Node", "EventTarget", "Navigator"] }
 
 [dev-dependencies]
-craft-update = { workspace = true }
 pdfcraft-xfa = { workspace = true }
 egui_kittest = { workspace = true, features = ["eframe", "wgpu"] }
 # Tests draw PdfCraft text without a system provider: the bundled and monochrome emoji faces must
@@ -98,10 +96,6 @@ image = { version = "0.25", default-features = false, features = ["png"] }
 # Glyph-coverage test of the interface fonts; the same skrifa pdfcraft-fonts already uses.
 skrifa = "0.44"
 proptest = { workspace = true }
-
-[build-dependencies]
-serde_json = { workspace = true }
-toml = "1"
 
 [target.'cfg(target_os = "macos")'.dev-dependencies]
 # Only synthetic attribute fixtures use xattr; product reads/writes use rustix.
