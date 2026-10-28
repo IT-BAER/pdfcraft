@@ -397,6 +397,7 @@ fn app_creator<'a>(
         started.set(true);
         let mut app = PdfCraftApp::new();
         app.reader_profile = true;
+        reader_view_defaults(&mut app);
         // First start (or settings from before Units existed): the region's unit.
         app.units = pdfcraft_ui_egui::units::Unit::system();
         #[cfg(target_os = "linux")]
@@ -794,6 +795,15 @@ fn pick_adapter(adapters: &[(u32, u32, eframe::wgpu::DeviceType)], displays: &[D
         .map(|(i, _)| i)
 }
 
+/// The SMS reader opens every PDF at 100%, whatever zoom or layout the PDF asks for. Applied
+/// before the saved settings load, so a choice made in Preferences still wins.
+fn reader_view_defaults(app: &mut PdfCraftApp) {
+    if let Some(defaults) = app.view_defaults.with_zoom("100%") {
+        app.view_defaults = defaults;
+    }
+    app.always_default_view = true;
+}
+
 #[cfg(test)]
 mod tests {
     use pdfcraft_ui_egui::control::Endpoint;
@@ -813,6 +823,26 @@ mod tests {
     fn gpu() -> std::sync::MutexGuard<'static, ()> {
         // A test that panicked while holding it leaves nothing to clean up.
         GPU.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
+
+    #[test]
+    fn the_reader_opens_documents_at_100_percent_until_the_user_picks_another_zoom() {
+        use pdfcraft_ui_egui::canvas::Fit;
+        // One page whose OpenAction asks for Fit page.
+        const ASKS_FIT: &[u8] = b"%PDF-1.7
+1 0 obj << /Type /Catalog /Pages 2 0 R /OpenAction [3 0 R /Fit] >> endobj
+2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj
+3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 300 400] >> endobj
+trailer << /Root 1 0 R >>
+%%EOF";
+        let mut app = pdfcraft_ui_egui::PdfCraftApp::new();
+        super::reader_view_defaults(&mut app);
+        app.open_bytes("asks.pdf", None, ASKS_FIT.to_vec()).expect("opens");
+        assert_eq!((app.views[0].fit, app.views[0].zoom), (Fit::None, 1.0));
+        // A saved choice from Preferences wins over the reader's default.
+        app.restore(r#"{"default_zoom":"fit-width","always_default_view":false}"#);
+        assert_eq!(app.view_defaults.zoom_name(), "fit-width");
+        assert!(!app.always_default_view);
     }
 
     #[test]
