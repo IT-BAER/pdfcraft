@@ -328,6 +328,8 @@ fn native_options(integrated: bool, app_frame: bool, renderer: eframe::Renderer)
     let mut viewport = egui::ViewportBuilder::default()
         .with_title(pdfcraft_ui_egui::DISPLAY_NAME)
         .with_inner_size([1440.0, 920.0])
+        // First run only: a saved window state replaces size and maximized.
+        .with_maximized(true)
         .with_min_inner_size([820.0, 520.0])
         .with_drag_and_drop(true)
         // Wayland app id: matches packaging/linux/ai.storyteller.pdfcraft.desktop.
@@ -791,13 +793,21 @@ fn pick_adapter(adapters: &[(u32, u32, eframe::wgpu::DeviceType)], displays: &[D
         .map(|(i, _)| i)
 }
 
-/// The SMS reader opens every PDF at 100%, whatever zoom or layout the PDF asks for. Applied
-/// before the saved settings load, so a choice made in Preferences still wins.
+/// The SMS reader opens every PDF at 100%, whatever zoom or layout the PDF asks for, with the
+/// tools pane closed, prints on A4 and writes dates as dd.mm.yyyy. Applied before the saved
+/// settings load, so the user's own choices win.
 fn reader_view_defaults(app: &mut PdfCraftApp) {
     if let Some(defaults) = app.view_defaults.with_zoom("100%") {
         app.view_defaults = defaults;
     }
     app.always_default_view = true;
+    app.left_open = false;
+    if let Some(a4) = pdfcraft_engine::print::PAPERS.iter().position(|(name, _)| *name == "A4") {
+        app.print_draft.paper = a4;
+    }
+    if let Err(e) = app.session.set_date_format("dd.mm.yyyy") {
+        log::warn!("reader date format: {e}");
+    }
 }
 
 #[cfg(test)]
