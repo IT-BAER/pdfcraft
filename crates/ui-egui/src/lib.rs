@@ -60,6 +60,10 @@ pub use canvas::{DocView, RasterMemory};
 pub use editing::{CloseRequest, SaveTarget};
 pub use files::{ExtractDraft, FilePurpose, FileRequest, RotateDraft, SplitDraft, SplitMode, SplitPlan};
 pub use recovery::{AUTOSAVE_SECS, RecoveryMeta, RecoveryStore};
+
+/// The app name users see (window title, About). Settings folders, registry keys and the
+/// executable keep the internal name PdfCraft, so updates find what an older build left.
+pub const DISPLAY_NAME: &str = "PDF Reader";
 use theme::{ThemeKind, ThemePreference};
 
 mod app;
