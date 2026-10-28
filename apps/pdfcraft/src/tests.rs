@@ -73,6 +73,34 @@ trailer << /Root 1 0 R >>
 }
 
 #[test]
+fn the_reader_starts_with_the_tools_pane_closed_until_the_user_opens_it() {
+    let saved_open = pdfcraft_ui_egui::PdfCraftApp::new().persist();
+    let mut app = pdfcraft_ui_egui::PdfCraftApp::new();
+    super::reader_view_defaults(&mut app);
+    assert!(!app.left_open);
+    app.restore(&saved_open);
+    assert!(app.left_open, "a saved open pane wins");
+}
+
+#[test]
+fn the_reader_prints_on_a4_and_writes_dd_mm_yyyy_until_the_user_picks_others() {
+    use pdfcraft_engine::print::PAPERS;
+    let mut app = pdfcraft_ui_egui::PdfCraftApp::new();
+    super::reader_view_defaults(&mut app);
+    assert_eq!(PAPERS[app.print_draft.paper].0, "A4");
+    assert_eq!(app.session.date_format(), "dd.mm.yyyy");
+    app.restore(r#"{"print_paper":"US Legal","date_format":"yyyy-mm-dd"}"#);
+    assert_eq!((PAPERS[app.print_draft.paper].0, app.session.date_format()), ("US Legal", "yyyy-mm-dd"), "saved choices win");
+}
+
+#[test]
+fn the_first_window_opens_maximized() {
+    // A saved window state replaces this on later runs (egui-winit WindowSettings).
+    let options = super::native_options(false, false, eframe::Renderer::Glow);
+    assert_eq!(options.viewport.maximized, Some(true));
+}
+
+#[test]
 fn a_control_channel_that_cant_be_published_stops_the_app() {
     let dir = std::env::temp_dir().join(format!("pdfcraft-app-control-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
