@@ -392,6 +392,7 @@ fn app_creator<'a>(
         started.set(true);
         let mut app = PdfCraftApp::new();
         app.reader_profile = true;
+        reader_view_defaults(&mut app);
         // First start (or settings from before Units existed): the region's unit.
         app.units = pdfcraft_ui_egui::units::Unit::system();
         #[cfg(target_os = "linux")]
@@ -788,6 +789,15 @@ fn pick_adapter(adapters: &[(u32, u32, eframe::wgpu::DeviceType)], displays: &[D
             (compositor != Some((*vendor, *device)), !drives_display, !drives_primary, rank)
         })
         .map(|(i, _)| i)
+}
+
+/// The SMS reader opens every PDF at 100%, whatever zoom or layout the PDF asks for. Applied
+/// before the saved settings load, so a choice made in Preferences still wins.
+fn reader_view_defaults(app: &mut PdfCraftApp) {
+    if let Some(defaults) = app.view_defaults.with_zoom("100%") {
+        app.view_defaults = defaults;
+    }
+    app.always_default_view = true;
 }
 
 #[cfg(test)]

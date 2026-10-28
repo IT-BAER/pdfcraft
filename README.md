@@ -31,6 +31,9 @@ Branch `main` mirrors upstream unchanged.
   German catalog. Internal names stay PdfCraft (exe, registry keys, ProgId, install and settings
   folders), so updates and existing settings keep working. The German catalog (`de.tsv`) is
   complete (`cargo xtask i18n-report`: de 0 missing).
+- PDFs open at 100%, whatever zoom or page layout the PDF asks for (`reader_view_defaults` in
+  `apps/pdfcraft/src/main.rs`). It is only the default: saved settings load after it, so a choice
+  made in Preferences (Default zoom, "Always use my default zoom and page layout") wins.
 - MSI manufacturer is "SMS group". UpgradeCode, ProgId `PdfCraft.Document` and install folder are
   unchanged, so an SMS build and an upstream build replace each other.
 - `packaging/windows/sign.ps1` can sign with a certificate from the CurrentUser\My store
