@@ -173,6 +173,23 @@ fn the_organize_panel_keeps_only_reader_page_actions() {
     }
 }
 
+/// Strings the i18n report cannot see (a label passed through a variable, About credits) are German too.
+#[test]
+fn the_german_reader_shows_no_english_leftovers() {
+    let h = harness(true, true, |app| {
+        app.set_option("language", "de").unwrap();
+        app.set_option("tool", "organize").unwrap();
+    });
+    assert!(shown(&h, "Seiten drucken"));
+    assert!(!shown(&h, "Print pages"));
+    let h = harness(true, true, |app| {
+        app.set_option("language", "de").unwrap();
+        app.dialog = Some(pdfcraft_ui_egui::Dialog::About);
+    });
+    h.get_by_label("Basiert auf PdfCraft vom ArtCraft-Team und der Community.");
+    assert_eq!(h.query_all_by_label_contains("Darstellung: hayro").count(), 1);
+}
+
 /// The full app (the default) still shows everything the reader hides.
 #[test]
 fn without_the_profile_everything_shows() {

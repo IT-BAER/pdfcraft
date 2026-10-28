@@ -1288,20 +1288,20 @@ fn dialogs(app: &mut PdfCraftApp, ctx: &egui::Context) {
                 });
             }
             Dialog::About => {
-                ui.label(egui::RichText::new("PdfCraft").font(theme::semibold(20.0)));
+                ui.label(egui::RichText::new(crate::DISPLAY_NAME).font(theme::semibold(20.0)));
                 ui.label(crate::i18n::fmt(tl!("Version {v}"), &[("v", &pdfcraft_engine::build_info::version())]));
                 ui.add_space(6.0);
                 ui.label(tl!("Licensed under MIT or Apache-2.0."));
                 ui.label(
-                    egui::RichText::new(
-                        "Rendering: hayro (bootstrap) · UI: egui · Icons: Lucide (ISC) · Fonts: Inter, JetBrains Mono, Dancing Script (OFL)",
-                    )
+                    egui::RichText::new(tl!(
+                        "Rendering: hayro (bootstrap) · UI: egui · Icons: Lucide (ISC) · Fonts: Inter, JetBrains Mono, Dancing Script (OFL)"
+                    ))
                     .color(t.text_muted)
                     .small(),
                 );
                 ui.add_space(12.0);
                 // Plain-text credit: forks may not show the ArtCraft marks (upstream docs/brand/LICENSE-brand.txt).
-                ui.label(egui::RichText::new("Based on PdfCraft by the ArtCraft team and community.").color(t.text_muted));
+                ui.label(egui::RichText::new(tl!("Based on PdfCraft by the ArtCraft team and community.")).color(t.text_muted));
             }
         }
         ui.add_space(16.0);

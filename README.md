@@ -25,7 +25,12 @@ Branch `main` mirrors upstream unchanged.
   version text, the MCP server info, the code signature or Add/Remove Programs. Links inside PDF
   documents still work, after the "Open this web page?" prompt.
 - MSI installs only `pdfcraft.exe` and the licence files: no `pdfcraft-cli.exe`, no OCR models, no
-  "Create PDF with PdfCraft…" menu on images. The PDF right-click entry reads "Open with PdfCraft".
+  "Create PDF with PdfCraft…" menu on images. The PDF right-click entry reads "Mit PDF Reader öffnen".
+- Display name "PDF Reader" (`pdfcraft_ui_egui::DISPLAY_NAME`, `apps/pdfcraft/build.rs`, the MSI):
+  window title, About, Start Menu and desktop shortcut, Default apps, Add/Remove Programs, and the
+  German catalog. Internal names stay PdfCraft (exe, registry keys, ProgId, install and settings
+  folders), so updates and existing settings keep working. The German catalog (`de.tsv`) is
+  complete (`cargo xtask i18n-report`: de 0 missing).
 - MSI manufacturer is "SMS group". UpgradeCode, ProgId `PdfCraft.Document` and install folder are
   unchanged, so an SMS build and an upstream build replace each other.
 - `packaging/windows/sign.ps1` can sign with a certificate from the CurrentUser\My store
