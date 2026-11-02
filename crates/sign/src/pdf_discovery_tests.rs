@@ -397,3 +397,17 @@ fn dss_evidence_decodes_each_stream_once_within_its_caps() {
     assert!(ocsps.cut);
     assert!(DssEvidence::new(&doc, &dss, b"OCSPs").count() <= MAX_DSS_ENTRIES);
 }
+
+/// The SMS build trusts D-TRUST Root CA 5 2022 without the user adding it. The expected SHA-1 is
+/// the one d-trust.net publishes for that root.
+#[test]
+fn the_built_in_d_trust_root_is_trusted_without_the_user_adding_it() {
+    let root = Certificate::parse(include_bytes!("../../../assets/trust/d-trust-root-ca-5-2022.cer")).unwrap();
+    let sha1: String = DigestAlg::Sha1.digest(&[&root.raw]).iter().map(|b| format!("{b:02X}")).collect();
+    assert_eq!(sha1, "643211332169B483B55F7046E56CBFC6C11DC5F8");
+    assert!(TrustStore::default().trusts(&root));
+    let user = Certificate::parse(&crate::x509::load_certificates(include_bytes!("../tests/data/rsa.crt.pem")).unwrap()[0].raw).unwrap();
+    assert!(TrustStore { certs: vec![user.clone()] }.trusts(&root), "the user's own list adds to the built-in roots");
+    assert!(!TrustStore::default().trusts(&user), "nothing else is trusted by default");
+    assert!(TrustStore::default().anchors().any(|c| c.raw == root.raw), "chain building sees the built-in root");
+}
