@@ -116,7 +116,7 @@
 	Page display	Seitenanzeige
 	Continuous scrolling	Fortlaufendes Scrollen
 	Show gaps between pages	Abstände zwischen Seiten anzeigen
-	Hide gaps to join page edges. Margins inside the PDF remain unchanged.	Blenden Sie die Abstände aus, um die Seitenkanten aneinanderzusetzen. Die Ränder innerhalb der PDF bleiben unverändert.
+	Hide gaps to join page edges. Margins inside the PDF remain unchanged.	Blende die Abstände aus, um die Seitenkanten aneinanderzusetzen. Die Ränder innerhalb der PDF bleiben unverändert.
 	Two-page view	Doppelseitenansicht
 	Single page	Einzelseite
 	Show cover page in two-page view	Deckblatt in Doppelseitenansicht anzeigen
@@ -744,7 +744,7 @@
 	Installed fonts…	Installierte Schriftarten…
 	Keep source fonts	Quellschriftarten beibehalten
 	Load font…	Schriftart laden…
-	No openly licensed document fonts found. Load a font file.	Keine offen lizenzierten Schriftarten gefunden. Laden Sie eine Schriftartdatei.
+	No openly licensed document fonts found. Load a font file.	Keine offen lizenzierten Schriftarten gefunden. Lade eine Schriftartdatei.
 
 	Format text	Text formatieren
 	Bold	Fett
@@ -804,7 +804,7 @@
 	Couldn't copy the image: {e}	Das Bild konnte nicht kopiert werden: {e}
 	Copy Image in Original Format	Bild im Originalformat kopieren
 	The image has been copied as a {ext} file	Das Bild wurde als {ext}-Datei kopiert
-	The page has changed; select the image again	Die Seite hat sich geändert; wählen Sie das Bild erneut aus
+	The page has changed; select the image again	Die Seite hat sich geändert; wähle das Bild erneut aus
 	No check has run yet.	Es wurde noch nicht gesucht.
 	PdfCraft {v} is available.	PDF Reader {v} ist verfügbar.
 	You have version {c}. Download the new version from its release page.	Du hast Version {c}. Lade die neue Version von ihrer Release-Seite herunter.
@@ -1675,7 +1675,7 @@
 	Sent to {printer}: {msg}	An {printer} gesendet: {msg}
 	Looking for printers…	Drucker werden gesucht…
 	Sending sheet {s} of {n} to {printer}…	Blatt {s} von {n} wird an {printer} gesendet…
-	No printers were found. Check that the printer is installed and the print spooler is running, then open Print again.	Es wurden keine Drucker gefunden. Prüfen Sie, ob der Drucker installiert ist und die Druckwarteschlange läuft, und öffnen Sie dann „Drucken“ erneut.
+	No printers were found. Check that the printer is installed and the print spooler is running, then open Print again.	Es wurden keine Drucker gefunden. Prüfe, ob der Drucker installiert ist und die Druckwarteschlange läuft, und öffne dann „Drucken“ erneut.
 	Reading the printer's settings…	Druckereinstellungen werden gelesen …
 	Sending to {printer}…	Wird an {printer} gesendet…
 	Choose a folder for the searchable files	Wähle einen Ordner für die durchsuchbaren Dateien
@@ -2004,7 +2004,7 @@
 	Drawing scale	Zeichnungsmaßstab
 	Scale	Maßstab
 	Common scales	Gängige Maßstäbe
-	Enter a scale such as 1:50.	Geben Sie einen Maßstab wie 1:50 ein.
+	Enter a scale such as 1:50.	Gib einen Maßstab wie 1:50 ein.
 	Applying a scale switches units to m / mm.	Beim Anwenden eines Maßstabs werden die Einheiten auf m / mm umgestellt.
 	Snapping	Einrasten
 	Export measurements	Messungen exportieren
@@ -2254,7 +2254,7 @@ action wizard	Start	Starten
 	Clear Recent Files	Liste „Zuletzt geöffnet“ leeren
 	Remove from Recent	Aus „Zuletzt geöffnet“ entfernen
 	Remove {name} from Recent	{name} aus „Zuletzt geöffnet“ entfernen
-	The PDF text fonts can't draw “{c}” ({code}). Choose supported text.	Die PDF-Textschriften können „{c}“ ({code}) nicht darstellen. Wählen Sie unterstützten Text.
+	The PDF text fonts can't draw “{c}” ({code}). Choose supported text.	Die PDF-Textschriften können „{c}“ ({code}) nicht darstellen. Wähle unterstützten Text.
 	The standard fonts can't draw “{c}” ({code}). Only Western European characters can be added as text for now.	Die Standardschriften können „{c}“ ({code}) nicht darstellen. Derzeit lassen sich nur westeuropäische Zeichen als Text hinzufügen.
 	This field's font can't draw “{c}” ({code}), so PdfCraft shows ? in its place. The value is saved, and other PDF viewers redraw the field from it.	Die Schrift dieses Felds kann „{c}“ ({code}) nicht darstellen, daher zeigt PDF Reader an dieser Stelle ? an. Der Wert ist gespeichert, und andere PDF-Viewer zeichnen das Feld anhand des Werts neu.
 	The fonts PdfCraft writes with can't draw “{c}” ({code}), so it shows as ? in every PDF viewer. The text is saved.	Die Schriften, mit denen PDF Reader schreibt, können „{c}“ ({code}) nicht darstellen, daher erscheint es in jedem PDF-Viewer als ?. Der Text ist gespeichert.
@@ -2302,15 +2302,15 @@ action wizard	Start	Starten
 
 # Multi-object selection and movement (#844)
 @plural	{n} object selected|{n} objects selected	{n} Objekt ausgewählt|{n} Objekte ausgewählt
-	Drag the selection to move it. Esc clears the selection.	Ziehen Sie die Auswahl, um sie zu verschieben. Esc hebt die Auswahl auf.
-	Shift-click to select several objects. Drag empty space to select an area.	Mit Umschalt-Klick mehrere Objekte auswählen. Ziehen Sie in einem leeren Bereich, um einen Auswahlrahmen aufzuziehen.
-	Select at most 1000 objects at a time.	Wählen Sie höchstens 1000 Objekte gleichzeitig aus.
-	Finish or discard the text being edited before selecting several objects.	Schließen Sie die Textbearbeitung ab oder verwerfen Sie sie, bevor Sie mehrere Objekte auswählen.
+	Drag the selection to move it. Esc clears the selection.	Zieh die Auswahl, um sie zu verschieben. Esc hebt die Auswahl auf.
+	Shift-click to select several objects. Drag empty space to select an area.	Mit Umschalt-Klick mehrere Objekte auswählen. Zieh in einem leeren Bereich, um einen Auswahlrahmen aufzuziehen.
+	Select at most 1000 objects at a time.	Wähle höchstens 1000 Objekte gleichzeitig aus.
+	Finish or discard the text being edited before selecting several objects.	Schließ die Textbearbeitung ab oder verwirf sie, bevor du mehrere Objekte auswählst.
 	Move object	Objekt verschieben
 	Move objects	Objekte verschieben
 	Vertical text cannot be moved with this selection.	Vertikaler Text kann mit dieser Auswahl nicht verschoben werden.
 	Text used as a clipping path cannot be moved with this selection.	Text, der als Beschneidungspfad dient, kann mit dieser Auswahl nicht verschoben werden.
-	These objects could not be moved. Select them again and try a smaller move.	Diese Objekte konnten nicht verschoben werden. Wählen Sie sie erneut aus und versuchen Sie eine kleinere Verschiebung.
+	These objects could not be moved. Select them again and try a smaller move.	Diese Objekte konnten nicht verschoben werden. Wähle sie erneut aus und versuch eine kleinere Verschiebung.
 	This page contains objects that cannot be selected together.	Diese Seite enthält Objekte, die nicht gemeinsam ausgewählt werden können.
 	Fill colour	Füllfarbe
 	No fill	Keine Füllung
@@ -2358,7 +2358,7 @@ key	Space	Leertaste
 	Don't show again	Nicht mehr anzeigen
 	Show a notice when a document is secured	Hinweis anzeigen, wenn ein Dokument geschützt ist
 	Always use my default zoom and page layout	Immer meinen Standardzoom und mein Standard-Seitenlayout verwenden
-	This file changed on disk. Reload shows the new version and drops your unsaved changes; Save replaces it with this version.	Diese Datei wurde auf dem Datenträger geändert. „Neu laden“ zeigt die neue Version und verwirft Ihre ungespeicherten Änderungen; „Speichern“ ersetzt sie durch diese Version.
+	This file changed on disk. Reload shows the new version and drops your unsaved changes; Save replaces it with this version.	Diese Datei wurde auf dem Datenträger geändert. „Neu laden“ zeigt die neue Version und verwirft deine ungespeicherten Änderungen; „Speichern“ ersetzt sie durch diese Version.
 	Reload	Neu laden
 	Couldn't reload {name}: {e}	{name} konnte nicht neu geladen werden: {e}
 	Scroll speed (mouse wheel and arrow keys)	Bildlaufgeschwindigkeit (Mausrad und Pfeiltasten)
@@ -2369,7 +2369,7 @@ scroll speed	Fast	Schnell
 animation effects	On	Ein
 animation effects	Off	Aus
 	Enhance camera image	Kamerafoto verbessern
-	Drag the corners onto the document's edges, then choose Enhance page.	Ziehen Sie die Ecken auf die Kanten des Dokuments und wählen Sie dann Seite verbessern.
+	Drag the corners onto the document's edges, then choose Enhance page.	Zieh die Ecken auf die Kanten des Dokuments und wähle dann Seite verbessern.
 	Enhance page	Seite verbessern
 	Done adding text	Texteingabe abschließen
 	Discard this text (Esc)	Diesen Text verwerfen (Esc)
@@ -2428,12 +2428,12 @@ animation effects	Off	Aus
 @plural	{fields} builds some field names as it runs, so those reads aren't checked.|{fields} build some field names as they run, so those reads aren't checked.	{fields} bildet manche Feldnamen erst beim Ausführen, daher werden diese Lesezugriffe nicht geprüft.|{fields} bilden manche Feldnamen erst beim Ausführen, daher werden diese Lesezugriffe nicht geprüft.
 @plural	{fields} is missing|{fields} are missing	{fields} fehlt|{fields} fehlen
 	Scan	Scannen
-	Sign a sheet of white paper and take a photo of it in bright, even light (use the flash). Choose the photo or drop it here: PdfCraft finds the signature and removes the paper.	Unterschreiben Sie auf einem weißen Blatt Papier und fotografieren Sie es bei hellem, gleichmäßigem Licht (mit Blitz). Wählen Sie das Foto aus oder ziehen Sie es hierher: PDF Reader findet die Unterschrift und entfernt das Papier.
+	Sign a sheet of white paper and take a photo of it in bright, even light (use the flash). Choose the photo or drop it here: PdfCraft finds the signature and removes the paper.	Unterschreib auf einem weißen Blatt Papier und fotografiere es bei hellem, gleichmäßigem Licht (mit Blitz). Wähle das Foto aus oder zieh es hierher: PDF Reader findet die Unterschrift und entfernt das Papier.
 	Choose photo…	Foto auswählen…
 	No photo chosen	Kein Foto ausgewählt
 	Photo	Foto
 	Ink sensitivity	Tintenempfindlichkeit
-	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	Im Rahmen wurde keine Unterschrift gefunden. Ziehen Sie den Rahmen über die Unterschrift oder erhöhen Sie die Tintenempfindlichkeit.
+	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	Im Rahmen wurde keine Unterschrift gefunden. Zieh den Rahmen über die Unterschrift oder erhöhe die Tintenempfindlichkeit.
 	Couldn't use the photo: {e}	Das Foto kann nicht verwendet werden: {e}
 
 # PDF tab context menu (#1233)
@@ -2459,9 +2459,9 @@ animation effects	Off	Aus
 
 # Absolute local GoToR confirmation (#1364).
 	Allow	Zulassen
-	Only allow this if you trust the source document.	Lassen Sie dies nur zu, wenn Sie dem Quelldokument vertrauen.
+	Only allow this if you trust the source document.	Lass dies nur zu, wenn du dem Quelldokument vertraust.
 	Open in Full Screen mode?	Im Vollbildmodus öffnen?
-	This document asks to open in Full Screen mode: the page fills the screen and nothing else shows. Press Esc at any time to leave it.	Dieses Dokument möchte im Vollbildmodus geöffnet werden: Die Seite füllt den Bildschirm, sonst wird nichts angezeigt. Mit Esc verlassen Sie ihn jederzeit.
+	This document asks to open in Full Screen mode: the page fills the screen and nothing else shows. Press Esc at any time to leave it.	Dieses Dokument möchte im Vollbildmodus geöffnet werden: Die Seite füllt den Bildschirm, sonst wird nichts angezeigt. Mit Esc verlässt du ihn jederzeit.
 	Full Screen	Vollbild
 	Not now	Jetzt nicht
 	Open this local PDF?	Diese lokale PDF-Datei öffnen?
@@ -2470,8 +2470,8 @@ animation effects	Off	Aus
 	Move tag later	Tag später verschieben
 
 # Historical snapshot notice bar (View signed version / View revision).
-	You are viewing the signed version of “{from}” (revision {rev}). It is a snapshot: changes here won't affect the original.	Sie sehen die signierte Version von „{from}“ (Revision {rev}). Es handelt sich um eine Momentaufnahme: Änderungen hier wirken sich nicht auf das Original aus.
-	You are viewing revision {rev} of “{from}”. It is a snapshot: changes here won't affect the original.	Sie sehen Revision {rev} von „{from}“. Es handelt sich um eine Momentaufnahme: Änderungen hier wirken sich nicht auf das Original aus.
+	You are viewing the signed version of “{from}” (revision {rev}). It is a snapshot: changes here won't affect the original.	Du siehst die signierte Version von „{from}“ (Revision {rev}). Es handelt sich um eine Momentaufnahme: Änderungen hier wirken sich nicht auf das Original aus.
+	You are viewing revision {rev} of “{from}”. It is a snapshot: changes here won't affect the original.	Du siehst Revision {rev} von „{from}“. Es handelt sich um eine Momentaufnahme: Änderungen hier wirken sich nicht auf das Original aus.
 	Turn upside down (180°)	Auf den Kopf drehen (180°)
 	4 x 6 in label (101.6 x 152.4 mm)	Etikett 4 × 6 Zoll (101,6 × 152,4 mm)
 	Cuts each page to its printed area, turns it upright and fits it to the sheet without stretching. One label per sheet.	Schneidet jede Seite auf ihren bedruckten Bereich zu, richtet sie auf und passt sie ohne Verzerrung an das Blatt an. Ein Etikett pro Blatt.
@@ -2494,7 +2494,7 @@ animation effects	Off	Aus
 	Characters	Zeichen
 	Characters without spaces	Zeichen ohne Leerzeichen
 	Pages counted	Gezählte Seiten
-	Some pages contain no countable text. Scanned images need OCR first.	Einige Seiten enthalten keinen zählbaren Text. Führen Sie für gescannte Bilder zuerst eine Texterkennung durch.
+	Some pages contain no countable text. Scanned images need OCR first.	Einige Seiten enthalten keinen zählbaren Text. Führ für gescannte Bilder zuerst eine Texterkennung durch.
 	Some content could not be classified safely and was kept in the count.	Einige Inhalte konnten nicht sicher zugeordnet werden und wurden mitgezählt.
 	Counting words… {n} pages read	Wörter werden gezählt… {n} Seiten gelesen
 	Word counting stopped unexpectedly.	Die Wortzählung wurde unerwartet beendet.
@@ -2525,11 +2525,11 @@ animation effects	Off	Aus
 	Pin a tool…	Werkzeug anheften…
 	Pin to Home	An Start anheften
 	Pin tools to Home	Werkzeuge an Start anheften
-	Pin your favorite tools here for quick access.	Heften Sie Ihre bevorzugten Werkzeuge hier an, um schnell darauf zuzugreifen.
+	Pin your favorite tools here for quick access.	Hefte deine bevorzugten Werkzeuge hier an, um schnell darauf zuzugreifen.
 	Pinned	Angeheftet
 	Pinned Tools	Angeheftete Werkzeuge
 	Search tools…	Werkzeuge suchen…
-	Select tools to display on your Home page for quick access.	Wählen Sie Werkzeuge für den Schnellzugriff auf Ihrer Startseite aus.
+	Select tools to display on your Home page for quick access.	Wähle Werkzeuge für den Schnellzugriff auf deiner Startseite aus.
 	Unpin from Home	Von Start lösen
 	Unpin tool	Werkzeug lösen
 	Transform image	Bild transformieren
@@ -2545,7 +2545,7 @@ animation effects	Off	Aus
 	Forms & Signatures	Formulare & Signaturen
 	Protect & Standardize	Schützen & Standardisieren
 	Customize & Automate	Anpassen & Automatisieren
-	No tools match your search.	Keine Werkzeuge entsprechen Ihrer Suche.
+	No tools match your search.	Keine Werkzeuge entsprechen deiner Suche.
 	Expand all tools	Alle Werkzeuge ausklappen
 	Collapse all tools	Alle Werkzeuge einklappen
 	Attach a file…	Datei anhängen…
