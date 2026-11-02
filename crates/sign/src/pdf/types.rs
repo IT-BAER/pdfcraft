@@ -6,9 +6,23 @@ pub struct TrustStore {
     pub certs: Vec<Certificate>,
 }
 
+/// Roots the SMS build trusts on top of the user's list (`assets/trust/README.md`). They are not
+/// part of `certs`, so Preferences neither lists, saves nor clears them.
+const BUILT_IN_ROOTS: &[&[u8]] = &[include_bytes!("../../../../assets/trust/d-trust-root-ca-5-2022.cer")];
+
+fn built_in_roots() -> &'static [Certificate] {
+    static ROOTS: std::sync::OnceLock<Vec<Certificate>> = std::sync::OnceLock::new();
+    ROOTS.get_or_init(|| BUILT_IN_ROOTS.iter().filter_map(|der| Certificate::parse(der).ok()).collect())
+}
+
 impl TrustStore {
+    /// The user's certificates and the built-in roots.
+    pub(super) fn anchors(&self) -> impl Iterator<Item = &Certificate> {
+        self.certs.iter().chain(built_in_roots())
+    }
+
     pub(super) fn trusts(&self, c: &Certificate) -> bool {
-        self.certs.iter().any(|t| t.raw == c.raw)
+        self.anchors().any(|t| t.raw == c.raw)
     }
 }
 

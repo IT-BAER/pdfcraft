@@ -2794,6 +2794,17 @@ usage = "Master artwork; every other app-icon file is rendered from it (packagin
 sha256 = "c579b2700faabbf60e160effd2e385e348099bfd96a15c89175b81dfdf81c303"
 
 [[asset]]
+path = "assets/trust/d-trust-root-ca-5-2022.cer"
+title = "D-TRUST Root CA 5 2022 (CA root certificate)"
+author = "D-Trust GmbH"
+source = "https://www.d-trust.net/en/support/repository (SHA-1 643211332169B483B55F7046E56CBFC6C11DC5F8, checked 2026-11-02)"
+licence = "LicenseRef-SMS-Trust-Anchor"
+licence_file = "assets/trust/README.md"
+kind = "certificate"
+usage = "SMS build: compiled into pdfcraft-sign as a built-in trusted root for signature validation (sproof sign)"
+sha256 = "d839672f984dca7cd480ce201627a4de61c5c1855f450e5b706200e73a23f047"
+
+[[asset]]
 path = "assets/app-icon/pdfcraft-small.svg"
 title = "PdfCraft app icon (light vector)"
 author = "PdfCraft contributors (SMS build: hand-written SVG, red tile with a white page)"

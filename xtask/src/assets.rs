@@ -42,6 +42,10 @@ pub const ALLOWED_LICENCES: &[&str] = &[
 /// (AGENTS.md §1.2).
 pub const BRAND_LICENCE: &str = "LicenseRef-Storyteller-Trademark";
 
+/// SMS build exception: public CA root certificates the reader trusts by default. They carry no
+/// open licence; allowed only as `kind = "certificate"` `.cer` entries under `assets/trust/`.
+pub const SMS_TRUST_LICENCE: &str = "LicenseRef-SMS-Trust-Anchor";
+
 pub const ADOBE_DATA_ALLOWED: &[(&str, &str)] = &[("hayro-cmap", "assets/cmaps.brotli"), ("hayro-interpret", "src/font/generated/metrics.rs")];
 
 /// First-party files on that same closed list: generated tables of Adobe-authored non-visual
@@ -59,6 +63,7 @@ pub const TRANSLATION_DIR: &str = "crates/ui-egui/src/i18n/";
 const ASSET_EXTENSIONS: &[&str] = &[
     "png", "jpg", "jpeg", "gif", "svg", "ico", "icns", "webp", "bmp", "tif", "tiff", "avif", "heic", "ttf", "otf", "ttc", "woff", "woff2", "pfb",
     "pfa", "afm", "icc", "icm", "pdf", "eps", "ps", "ai", "psd", "mp3", "wav", "ogg", "flac", "mp4", "mov", "webm", "cur", "ani", "brotli", "tsv",
+    "cer",
 ];
 
 #[derive(Deserialize, Default)]
@@ -263,7 +268,9 @@ pub fn check(root: &Path, m: &Manifest, repo_files: &[String], lock: &BTreeSet<(
             problems.push(format!("{}: listed twice", a.path));
         }
         let brand = a.licence == BRAND_LICENCE && a.kind == "logo" && a.path.starts_with("docs/brand/");
-        if !brand {
+        let trust_anchor =
+            a.licence == SMS_TRUST_LICENCE && a.kind == "certificate" && a.path.starts_with("assets/trust/") && a.path.ends_with(".cer");
+        if !brand && !trust_anchor {
             licence_ok(&a.path, &a.licence, &mut problems);
         }
         if !root.join(&a.licence_file).is_file() {
@@ -627,6 +634,24 @@ mod tests {
             let p = check(&root, &m, &[], &BTreeSet::new());
             assert_eq!(p.iter().all(|p| !p.contains("allowlist")), pass, "{path} {kind}: {p:?}");
         }
+    }
+
+    #[test]
+    fn trust_anchor_licence_only_for_certificates_in_assets_trust() {
+        let root = super::root();
+        for (path, kind, pass) in [
+            ("assets/trust/root.cer", "certificate", true),
+            ("assets/trust/root.cer", "data", false),
+            ("assets/trust/root.png", "certificate", false),
+            ("assets/data/root.cer", "certificate", false),
+        ] {
+            let mut a = asset(path, "Some CA", kind, SMS_TRUST_LICENCE);
+            a.licence_file = "assets/trust/README.md".into();
+            let m = Manifest { asset: vec![a], ..Default::default() };
+            let p = check(&root, &m, &[], &BTreeSet::new());
+            assert_eq!(p.iter().all(|p| !p.contains("allowlist")), pass, "{path} {kind}: {p:?}");
+        }
+        assert!(is_asset_path("assets/trust/root.cer"), "a certificate file needs an entry");
     }
 
     #[test]
