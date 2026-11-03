@@ -657,6 +657,9 @@ fn card_general(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tokens, ctx: &mut 
 
     #[cfg(not(target_arch = "wasm32"))]
     ctx.checkbox(ui, &mut app.reopen_last_session, tl!("Reopen the files that were open when PdfCraft last closed"), t);
+    // The web build has one page, no windows to open.
+    #[cfg(not(target_arch = "wasm32"))]
+    ctx.checkbox(ui, &mut app.open_in_new_window, tl!("Open each PDF in a new window"), t);
     #[cfg(not(target_arch = "wasm32"))]
     ctx.checkbox(ui, &mut app.restore_last_view, tl!("Restore the last view (page, zoom and page display) when a document is opened again"), t);
     #[cfg(not(target_arch = "wasm32"))]

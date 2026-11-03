@@ -103,7 +103,7 @@ use dialogs::protect;
 use dialogs::standards_ui;
 use dialogs::word_count_ui;
 pub use home::folders_ui;
-pub use hooks::{FailedInbox, HostDirtyFn, HostSaveFn, Inbox, OsEvent, OsEventsFn};
+pub use hooks::{FailedInbox, HostDirtyFn, HostSaveFn, Inbox, OpenElsewhereFn, OsEvent, OsEventsFn};
 use menus::tab_context;
 use panels::all_tools_ui;
 use panels::comments_panel;
@@ -346,6 +346,14 @@ pub struct PdfCraftApp {
     pub recent_limit: usize,
     /// Preferences: reopen the files that were open when PdfCraft last closed (#442).
     pub reopen_last_session: bool,
+    /// Preferences: open each PDF in a window of its own instead of a tab, once this window shows
+    /// a document ([`Self::open_elsewhere`] starts the other window).
+    pub open_in_new_window: bool,
+    /// Starts another window for a file (see [`Self::open_in_new_window`]); none on the web.
+    pub open_elsewhere: Option<OpenElsewhereFn>,
+    /// Kept equal to [`Self::open_in_new_window`] every frame, for the desktop app's
+    /// single-instance listener, which runs on its own thread.
+    pub new_window_flag: Option<std::sync::Arc<std::sync::atomic::AtomicBool>>,
     /// Restore last view settings when reopening documents (Preferences ▸ Documents and view;
     /// #1767): the page, zoom and page display a file was last shown with. On by default.
     pub restore_last_view: bool,

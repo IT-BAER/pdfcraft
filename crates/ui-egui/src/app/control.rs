@@ -238,6 +238,13 @@ impl PdfCraftApp {
                 self.view_defaults =
                     self.view_defaults.with_zoom(value).ok_or("default-zoom must be fit-width, fit-page or a percentage from 8 to 6400")?;
             }
+            ("open-in-new-window", _) => {
+                self.open_in_new_window = match value {
+                    "on" => true,
+                    "off" => false,
+                    _ => return Err("open-in-new-window must be on or off".into()),
+                };
+            }
             ("always-default-view", _) => {
                 self.always_default_view = match value {
                     "on" => true,

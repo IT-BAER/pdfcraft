@@ -10,11 +10,12 @@
 //!  --theme light|dark|system  --language auto|<code>  --mode all|read|edit|convert|sign  --tool <catalogue id>  --left open|closed
 //!  --organize on  --fields on  --dialog properties|shortcuts|about  --palette <query>  --home on
 //!  --cover on|off  --default-layout single|continuous|two-up|two-page  --default-continuous on|off  --default-zoom fit-width|fit-page|<percent>  --always-default-view on|off
-//!  --page-gaps on|off  --default-page-gaps on|off  --recent-files 0..50
+//!  --page-gaps on|off  --default-page-gaps on|off  --recent-files 0..50  --open-in-new-window on|off
 //!  --combine-view grid|list  --combine-zoom 60..200`
 //!
 //! `--new-window` opens a window of its own. Without it, on Windows, a launch that only names files
-//! hands them to the PdfCraft already running, where they open as tabs (`single_instance`).
+//! hands them to the PdfCraft already running, where they open as tabs (`single_instance`), unless
+//! Preferences ▸ Open each PDF in a new window is on (the reader's default).
 //!
 //! `--control <file>` enables the UI control channel (off by default): the app listens on a random
 //! loopback port and writes `{"port", "token", "pid"}` to `<file>` (owner-only permissions). The
@@ -252,7 +253,9 @@ fn main() -> eframe::Result {
     // Absolute for this instance too: links relative to a document resolve against its folder,
     // never the working directory.
     let files = single_instance::absolute(&files);
-    let instance = match single_instance::claim(&files, may_hand_off) {
+    // Until the settings load, a first window sends launches back as the reader's default
+    // (Preferences ▸ Open each PDF in a new window) does.
+    let instance = match single_instance::claim(&files, may_hand_off, true) {
         single_instance::Claim::HandedOff => return Ok(()),
         single_instance::Claim::Primary(server) => Some(server),
         single_instance::Claim::Alone => None,
@@ -434,7 +437,11 @@ fn app_creator<'a>(
         }
         if let Some(server) = instance {
             app.os_events = Some(server.connect(&cc.egui_ctx, native_wayland(cc)));
+            let own_windows = server.own_windows();
+            own_windows.store(app.open_in_new_window, std::sync::atomic::Ordering::Relaxed);
+            app.new_window_flag = Some(own_windows);
         }
+        app.open_elsewhere = Some(Box::new(start_window_for));
         if let Some(file) = &control_file {
             let client = app.attach_control(&cc.egui_ctx);
             open_control_channel(file, pdfcraft_ui_egui::control::serve(client))?;
@@ -471,9 +478,7 @@ fn app_creator<'a>(
                 app.notify(e);
             }
         } else {
-            // With the preference on, last session's files come back first; files named on
-            // the command line open after them, in front (#442).
-            app.reopen_last_files(&files);
+            reopen_last_session(&mut app, &files);
             startup::open_files(&mut app, &files, two_paged);
         }
         for (k, v) in options {
@@ -799,10 +804,40 @@ fn pick_adapter(adapters: &[(u32, u32, eframe::wgpu::DeviceType)], displays: &[D
         .map(|(i, _)| i)
 }
 
-/// The SMS reader opens every PDF at 100%, whatever zoom or layout the PDF asks for, with the
-/// tools pane closed, prints on A4 and writes dates as dd.mm.yyyy. Applied before the saved
-/// settings load, so the user's own choices win.
+/// Start another PdfCraft with a window of its own for the file at `path` (Preferences ▸ Open
+/// each PDF in a new window). False, after logging why, when it couldn't be started.
+fn start_window_for(path: &str) -> bool {
+    // Absolute, so the path never reads as an option and doesn't depend on the working folder.
+    let started =
+        std::path::absolute(path).and_then(|file| std::process::Command::new(std::env::current_exe()?).arg("--new-window").arg(file).spawn());
+    match started {
+        Ok(mut child) => {
+            // Collected when it exits, so no finished process lingers (Unix zombies).
+            let _ = std::thread::Builder::new().name("window-process".into()).spawn(move || child.wait());
+            true
+        }
+        Err(e) => {
+            log::warn!("couldn't start a new window for {path}: {e}");
+            false
+        }
+    }
+}
+
+/// With the preference on, last session's files come back first; files named on the command
+/// line open after them, in front (#442). Not in a window opened for a file while each PDF
+/// opens in a window of its own: every such window would bring the whole session back.
+fn reopen_last_session(app: &mut PdfCraftApp, files: &[String]) {
+    if app.open_in_new_window && !files.is_empty() {
+        return;
+    }
+    app.reopen_last_files(files);
+}
+
+/// The SMS reader opens every PDF at 100%, whatever zoom or layout the PDF asks for, in a window
+/// of its own, with the tools pane closed, prints on A4 and writes dates as dd.mm.yyyy. Applied
+/// before the saved settings load, so the user's own choices win.
 fn reader_view_defaults(app: &mut PdfCraftApp) {
+    app.open_in_new_window = true;
     if let Some(defaults) = app.view_defaults.with_zoom("100%") {
         app.view_defaults = defaults;
     }

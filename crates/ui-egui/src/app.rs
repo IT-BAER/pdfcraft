@@ -122,6 +122,9 @@ impl PdfCraftApp {
             recent: Vec::new(),
             recent_limit: crate::RECENT_FILES_DEFAULT,
             reopen_last_session: false,
+            open_in_new_window: false,
+            open_elsewhere: None,
+            new_window_flag: None,
             restore_last_view: true,
             last_views: Vec::new(),
             last_session: Default::default(),
@@ -532,18 +535,21 @@ impl eframe::App for PdfCraftApp {
         for (name, e) in failed {
             self.notify_fmt("Couldn't open {name}: {e}", &[("name", &name), ("e", &e)]);
         }
+        if let Some(flag) = &self.new_window_flag {
+            flag.store(self.open_in_new_window, std::sync::atomic::Ordering::Relaxed);
+        }
         let os_events = self.os_events.as_mut().map(|poll| poll()).unwrap_or_default();
         for e in os_events {
             match e {
                 #[cfg(not(target_arch = "wasm32"))]
                 OsEvent::Open(paths) => {
-                    paths.iter().for_each(|p| {
-                        self.open_path(p);
-                    });
+                    let here = paths.iter().fold(false, |here, p| self.open_user_path(p) | here);
                     // Files handed to the running app (Finder, or another launch): bring its
                     // window to the front, also when minimized or full screen on another Space.
-                    ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(false));
-                    ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
+                    if here {
+                        ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(false));
+                        ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
+                    }
                 }
                 #[cfg(target_arch = "wasm32")]
                 OsEvent::Open(_) => {}

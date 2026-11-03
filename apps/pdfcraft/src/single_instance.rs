@@ -17,13 +17,19 @@
 //!
 //! Every failure falls back to the old behaviour: a launch that can't hand its files over within
 //! a few seconds opens its own window. `--new-window`, any other option, or no files at all also
-//! starts a window of its own, as before. macOS keeps its current behaviour (it already routes
-//! Finder opens to the running app through Apple events).
+//! starts a window of its own, as before. So does a launch that the running PdfCraft sends back
+//! (`new` instead of `ok`) because Preferences ▸ Open each PDF in a new window is on: the launch
+//! keeps the foreground rights Explorer gave it, which a window started by the running app would
+//! not have. macOS keeps its current behaviour (it already routes Finder opens to the running app
+//! through Apple events).
 //!
 //! On Windows the socket comes from `uds_windows`, already in the lockfile through zbus: `std` has
 //! no Unix sockets on Windows, and calling Winsock directly would need `unsafe`, which the
 //! workspace forbids.
 
+use std::sync::atomic::AtomicBool;
+#[cfg(any(windows, all(unix, not(target_os = "macos"))))]
+use std::sync::atomic::Ordering;
 use std::sync::{Arc, Mutex, PoisonError};
 #[cfg(any(windows, all(unix, not(target_os = "macos"))))]
 use std::time::Duration;
@@ -65,12 +71,19 @@ struct Inbox {
 /// process exits; the UI picks their files up through [`Server::connect`].
 pub struct Server {
     inbox: Arc<Mutex<Inbox>>,
+    /// Set: launches are sent back to open windows of their own.
+    own_windows: Arc<AtomicBool>,
 }
 
 impl Server {
     #[cfg_attr(not(any(windows, all(unix, not(target_os = "macos")))), allow(dead_code))]
-    fn new() -> Self {
-        Self { inbox: Arc::default() }
+    fn new(own_windows: bool) -> Self {
+        Self { inbox: Arc::default(), own_windows: Arc::new(AtomicBool::new(own_windows)) }
+    }
+
+    /// The switch the app keeps equal to Preferences ▸ Open each PDF in a new window.
+    pub fn own_windows(&self) -> Arc<AtomicBool> {
+        Arc::clone(&self.own_windows)
     }
 
     /// Queue files from another launch and wake the UI.
@@ -134,17 +147,18 @@ pub fn absolute(paths: &[String]) -> Vec<String> {
 
 /// Decide what this launch does. `files` are absolute ([`absolute`]); `may_hand_off` is false
 /// when the launch asked for anything besides opening files, so it gets its own window.
-pub fn claim(files: &[String], may_hand_off: bool) -> Claim {
+/// `own_windows` starts [`Server::own_windows`] if this launch becomes the first PdfCraft.
+pub fn claim(files: &[String], may_hand_off: bool, own_windows: bool) -> Claim {
     #[cfg(any(windows, all(unix, not(target_os = "macos"))))]
     {
         match socket_path() {
-            Some(path) => claim_at(&path, files, may_hand_off),
+            Some(path) => claim_at(&path, files, may_hand_off, own_windows),
             None => Claim::Alone,
         }
     }
     #[cfg(not(any(windows, all(unix, not(target_os = "macos")))))]
     {
-        let _ = (files, may_hand_off);
+        let _ = (files, may_hand_off, own_windows);
         Claim::Alone
     }
 }
@@ -238,7 +252,7 @@ fn election(socket: &std::path::Path) -> Option<std::fs::File> {
 
 /// [`claim`] with the socket at `path`.
 #[cfg(any(windows, all(unix, not(target_os = "macos"))))]
-fn claim_at(path: &std::path::Path, files: &[String], may_hand_off: bool) -> Claim {
+fn claim_at(path: &std::path::Path, files: &[String], may_hand_off: bool, own_windows: bool) -> Claim {
     // Released when this function returns: by then this launch listens, or has handed over.
     let _election = election(path);
     // Two launches can start together: the one that loses the race to bind hands over to the
@@ -250,7 +264,9 @@ fn claim_at(path: &std::path::Path, files: &[String], may_hand_off: bool) -> Cla
                     return Claim::Alone;
                 }
                 return match hand_off(&stream, files) {
-                    Ok(()) => Claim::HandedOff,
+                    Ok(true) => Claim::HandedOff,
+                    // Preferences ▸ Open each PDF in a new window: this launch opens its own.
+                    Ok(false) => Claim::Alone,
                     Err(e) => {
                         log::warn!("couldn't hand the files to the running PdfCraft ({e}); opening a new window");
                         Claim::Alone
@@ -279,7 +295,7 @@ fn claim_at(path: &std::path::Path, files: &[String], may_hand_off: bool) -> Cla
             let _ = std::fs::create_dir_all(dir);
         }
         match UnixListener::bind(path) {
-            Ok(listener) => return serve(listener),
+            Ok(listener) => return serve(listener, own_windows),
             // Another launch bound it first: hand over to that one on the next round.
             Err(e) if e.kind() == std::io::ErrorKind::AddrInUse => continue,
             // Older Windows, a path too long for a socket address, a file system without socket
@@ -293,9 +309,10 @@ fn claim_at(path: &std::path::Path, files: &[String], may_hand_off: bool) -> Cla
     Claim::Alone
 }
 
-/// Send `files` over `stream` and wait for the running app's `ok`.
+/// Send `files` over `stream` and wait for the running app's answer: `ok` (true, it took them)
+/// or `new` (false, this launch is to open them in a window of its own).
 #[cfg(any(windows, all(unix, not(target_os = "macos"))))]
-fn hand_off(stream: &UnixStream, files: &[String]) -> std::io::Result<()> {
+fn hand_off(stream: &UnixStream, files: &[String]) -> std::io::Result<bool> {
     use std::io::{BufRead, Read, Write};
     stream.set_read_timeout(Some(TIMEOUT))?;
     stream.set_write_timeout(Some(TIMEOUT))?;
@@ -303,14 +320,18 @@ fn hand_off(stream: &UnixStream, files: &[String]) -> std::io::Result<()> {
     writer.write_all(request(files).as_bytes())?;
     let mut reply = String::new();
     std::io::BufReader::new(stream.take(16)).read_line(&mut reply)?;
-    if reply == "ok\n" { Ok(()) } else { Err(std::io::Error::other("the running PdfCraft didn't confirm")) }
+    match reply.as_str() {
+        "ok\n" => Ok(true),
+        "new\n" => Ok(false),
+        _ => Err(std::io::Error::other("the running PdfCraft didn't confirm")),
+    }
 }
 
 /// Accept launches on a background thread for as long as the process runs.
 #[cfg(any(windows, all(unix, not(target_os = "macos"))))]
-fn serve(listener: UnixListener) -> Claim {
-    let server = Server::new();
-    let inbox = Server { inbox: Arc::clone(&server.inbox) };
+fn serve(listener: UnixListener, own_windows: bool) -> Claim {
+    let server = Server::new(own_windows);
+    let inbox = Server { inbox: Arc::clone(&server.inbox), own_windows: server.own_windows() };
     let started = std::thread::Builder::new().name("single-instance".into()).spawn(move || {
         for stream in listener.incoming() {
             let result = stream.and_then(|s| receive(&s, &inbox));
@@ -330,7 +351,8 @@ fn serve(listener: UnixListener) -> Claim {
     }
 }
 
-/// Read one launch's request, queue its files and confirm.
+/// Read one launch's request, then queue its files and confirm, or send it back to open them
+/// itself while [`Server::own_windows`] is set.
 #[cfg(any(windows, all(unix, not(target_os = "macos"))))]
 fn receive(stream: &UnixStream, server: &Server) -> std::io::Result<()> {
     use std::io::{BufRead, Read, Write};
@@ -343,8 +365,11 @@ fn receive(stream: &UnixStream, server: &Server) -> std::io::Result<()> {
         return Ok(());
     }
     let paths = parse_request(&line).ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidData, "not an open request"))?;
-    server.deliver(paths);
     let mut writer = stream;
+    if server.own_windows.load(Ordering::Relaxed) {
+        return writer.write_all(b"new\n");
+    }
+    server.deliver(paths);
     writer.write_all(b"ok\n")
 }
 
@@ -395,7 +420,7 @@ mod tests {
 
     #[test]
     fn delivered_files_reach_the_ui_once_wake_it_and_bring_the_window_forward() {
-        let server = Server::new();
+        let server = Server::new(false);
         // Before the window exists: queued, nothing to wake yet.
         server.deliver(vec!["a.pdf".into()]);
         let ctx = egui::Context::default();
@@ -441,13 +466,27 @@ mod tests {
     #[test]
     fn a_second_launch_hands_its_files_to_the_first() {
         let path = socket("hand-off");
-        let Claim::Primary(first) = claim_at(&path, &[], true) else { panic!("the first launch listens") };
+        let Claim::Primary(first) = claim_at(&path, &[], true, false) else { panic!("the first launch listens") };
         let mut poll = first.connect(&egui::Context::default(), false);
-        assert!(matches!(claim_at(&path, &["C:\\a.pdf".into()], true), Claim::HandedOff));
+        assert!(matches!(claim_at(&path, &["C:\\a.pdf".into()], true, false), Claim::HandedOff));
         assert!(matches!(poll().as_slice(), [OsEvent::Open(p)] if p == &["C:\\a.pdf"]));
         // A launch with options keeps its own window and doesn't take over the socket.
-        assert!(matches!(claim_at(&path, &["C:\\b.pdf".into()], false), Claim::Alone));
+        assert!(matches!(claim_at(&path, &["C:\\b.pdf".into()], false, false), Claim::Alone));
         assert!(poll().is_empty());
+    }
+
+    #[cfg(any(windows, all(unix, not(target_os = "macos"))))]
+    #[test]
+    fn a_first_window_that_wants_own_windows_sends_each_launch_back() {
+        let path = socket("own-windows");
+        let Claim::Primary(first) = claim_at(&path, &[], true, true) else { panic!("the first launch listens") };
+        let mut poll = first.connect(&egui::Context::default(), false);
+        assert!(matches!(claim_at(&path, &["C:\\a.pdf".into()], true, false), Claim::Alone), "sent back to open its own window");
+        assert!(poll().is_empty(), "the first window opens nothing");
+        // The preference turned off in the running window: launches become tabs again.
+        first.own_windows().store(false, Ordering::Relaxed);
+        assert!(matches!(claim_at(&path, &["C:\\b.pdf".into()], true, true), Claim::HandedOff));
+        assert!(matches!(poll().as_slice(), [OsEvent::Open(p)] if p == &["C:\\b.pdf"]));
     }
 
     #[cfg(any(windows, all(unix, not(target_os = "macos"))))]
@@ -461,7 +500,7 @@ mod tests {
                 let (path, barrier) = (path.clone(), Arc::clone(&barrier));
                 std::thread::spawn(move || {
                     barrier.wait();
-                    claim_at(&path, &[format!("C:\\{i}.pdf")], true)
+                    claim_at(&path, &[format!("C:\\{i}.pdf")], true, false)
                 })
             })
             .collect();
@@ -482,6 +521,6 @@ mod tests {
         }));
         // `symlink_metadata`, not `exists`, which follows the socket's reparse point and can fail.
         assert!(std::fs::symlink_metadata(&path).is_ok(), "the socket file stays behind");
-        assert!(matches!(claim_at(&path, &["C:\\a.pdf".into()], true), Claim::Primary(_)));
+        assert!(matches!(claim_at(&path, &["C:\\a.pdf".into()], true, false), Claim::Primary(_)));
     }
 }

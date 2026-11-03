@@ -547,10 +547,26 @@ impl PdfCraftApp {
             self.active = Some(i);
         } else {
             #[cfg(not(target_arch = "wasm32"))]
-            self.open_path(path);
+            self.open_user_path(path);
         }
         #[cfg(target_arch = "wasm32")]
         let _ = path;
+    }
+
+    /// Open a file the user asked for: File ▸ Open, a drop, a recent file, or another launch's.
+    /// With Preferences ▸ Open each PDF in a new window on, a window that already shows or is
+    /// opening a document starts another window for it ([`Self::open_elsewhere`]); a file open
+    /// here comes to the front instead, and one no window could be started for opens as a tab.
+    /// Returns whether it opens in this window.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn open_user_path(&mut self, path: &str) -> bool {
+        let busy = !self.views.is_empty() || !self.pending_opens.is_empty() || self.password_prompt.is_some();
+        let here = self.tab_showing(path).is_some() || self.pending_opens.iter().any(|p| p.path.as_deref().is_some_and(|p| same_file(p, path)));
+        if self.open_in_new_window && busy && !here && self.open_elsewhere.as_ref().is_some_and(|start| start(path)) {
+            return false;
+        }
+        self.open_path(path);
+        true
     }
 
     #[cfg(not(target_arch = "wasm32"))]

@@ -18,6 +18,10 @@ pub enum OsEvent {
 /// Returns the [`OsEvent`]s that arrived since it was last called (set by the desktop app).
 pub type OsEventsFn = Box<dyn FnMut() -> Vec<OsEvent>>;
 
+/// Opens the file at this absolute path in another window, for Preferences ▸ Open each PDF in a
+/// new window (set by the desktop app). False when no window could be started.
+pub type OpenElsewhereFn = Box<dyn Fn(&str) -> bool>;
+
 /// Hands a saved PDF to the page embedding PdfCraft (web): `(name, bytes, save_as)`. `save_as`
 /// is `true` for Save As. Set by the web app when a host page (such as a Nextcloud app) asked
 /// for saves; without it the browser downloads the file.

@@ -94,6 +94,43 @@ fn the_reader_prints_on_a4_and_writes_dd_mm_yyyy_until_the_user_picks_others() {
 }
 
 #[test]
+fn the_reader_opens_each_pdf_in_a_new_window_until_the_user_turns_it_off() {
+    let mut app = pdfcraft_ui_egui::PdfCraftApp::new();
+    super::reader_view_defaults(&mut app);
+    assert!(app.open_in_new_window);
+    app.restore(r#"{"open_in_new_window":false}"#);
+    assert!(!app.open_in_new_window, "a saved choice wins");
+}
+
+#[test]
+fn a_window_started_for_a_file_leaves_the_last_session_closed() {
+    const ONE_PAGE: &[u8] = b"%PDF-1.7
+1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj
+2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj
+3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 300 400] >> endobj
+trailer << /Root 1 0 R >>
+%%EOF";
+    let dir = std::env::temp_dir().join(format!("pdfcraft-last-session-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let [old, new] = ["old.pdf", "new.pdf"].map(|n| {
+        let p = dir.join(n);
+        std::fs::write(&p, ONE_PAGE).unwrap();
+        p.to_string_lossy().into_owned()
+    });
+    let saved = serde_json::json!({"reopen_last_session": true, "last_session": {"files": [{"path": old, "page": 0}]}}).to_string();
+    // With windows of their own, the last session's tabs stay closed in a window opened for a file.
+    for (own_windows, files, tabs) in [(true, vec![new.clone()], 1), (false, vec![new.clone()], 2), (true, vec![], 1)] {
+        let mut app = pdfcraft_ui_egui::PdfCraftApp::new();
+        app.restore(&saved);
+        app.open_in_new_window = own_windows;
+        super::reopen_last_session(&mut app, &files);
+        super::startup::open_files(&mut app, &files, false);
+        assert_eq!(app.views.len(), tabs, "own windows {own_windows}, files {files:?}");
+    }
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
 fn the_first_window_opens_maximized() {
     // A saved window state replaces this on later runs (egui-winit WindowSettings).
     let options = super::native_options(false, false, eframe::Renderer::Glow);

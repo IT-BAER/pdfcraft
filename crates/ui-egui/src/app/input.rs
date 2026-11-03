@@ -16,7 +16,7 @@ impl PdfCraftApp {
     pub(super) fn open_dropped(&mut self, f: egui::DroppedFileHandle, _ctx: &egui::Context) {
         let p = f.path().to_string_lossy().into_owned();
         if !p.is_empty() && f.path().is_absolute() {
-            self.open_path(&p);
+            self.open_user_path(&p);
             return;
         }
         let name = f.path().file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| "dropped.pdf".into());
