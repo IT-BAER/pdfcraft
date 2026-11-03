@@ -39,6 +39,8 @@ mod decorations;
 mod logging;
 #[cfg(target_os = "windows")]
 mod motion;
+#[cfg(target_os = "windows")]
+mod printers;
 mod reopen;
 mod settings;
 mod single_instance;
@@ -414,7 +416,11 @@ fn app_creator<'a>(
         {
             app.motion.source = Some(motion::source());
         }
-        app.printer_source = Some(pdfcraft_ui_egui::system_printers());
+        #[cfg(target_os = "windows")]
+        let printer_source = printers::source();
+        #[cfg(not(target_os = "windows"))]
+        let printer_source = pdfcraft_ui_egui::system_printers();
+        app.printer_source = Some(printer_source);
         app.os_key_store_ids = cfg!(any(target_os = "macos", target_os = "windows"));
         #[cfg(target_os = "macos")]
         {
