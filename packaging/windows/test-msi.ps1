@@ -258,6 +258,12 @@ $browseOk = Read-Row 'SELECT `Argument` FROM `ControlEvent` WHERE `Dialog_` = ''
 Assert-Equal $browseOk[0] 'INSTALLFOLDER' 'Browse OK sets the folder'
 $browseCancel = Read-Row 'SELECT `Event` FROM `ControlEvent` WHERE `Dialog_` = ''BrowseFolder'' AND `Control_` = ''Cancel'' AND `Event` = ''Reset''' 1
 Assert-Equal $browseCancel[0] 'Reset' 'Browse Cancel puts the folder back'
+# Deployment tools (NinjaOne registry conditions) read the installed version from a fixed key; the
+# Uninstall key is named by the ProductCode, which changes with every build.
+$versionValue = Read-Row 'SELECT `Value`, `Component_`, `Root` FROM `Registry` WHERE `Key` = ''Software\PdfCraft'' AND `Name` = ''Version''' 3
+Assert-Equal $versionValue[0] '[ProductVersion]' 'Version registry value'
+Assert-Equal $versionValue[1] 'PdfcraftApp' 'Version registry component'
+Assert-Equal $versionValue[2] '2' 'Version registry HKLM root'
 
 # Negative sequences are Windows Installer's success/user-exit/failure paths. Only full UI
 # shows these dialogs: an unattended /qn or /qb install must never wait for a Finish click.
@@ -301,4 +307,4 @@ $rm = Read-Row 'SELECT `Dialog` FROM `Dialog` WHERE `Dialog` = ''MsiRMFilesInUse
 Assert-Equal $rm[0] 'MsiRMFilesInUse' 'Files-in-use dialog'
 [void] [Runtime.InteropServices.Marshal]::FinalReleaseComObject($Database)
 [void] [Runtime.InteropServices.Marshal]::FinalReleaseComObject($Installer)
-Write-Output 'ok MSI: per-machine scope guard, publisher, persistent progress text, Start Menu shortcut, optional desktop shortcut and PDF context menu (on for a first install, kept on update only while present; welcome checkboxes), icon/key path, full-UI success/cancel/error and Finish controls, files-in-use dialog, reader-only file set (no CLI, OCR models, image menu or support URLs)'
+Write-Output 'ok MSI: per-machine scope guard, publisher, persistent progress text, Start Menu shortcut, optional desktop shortcut and PDF context menu (on for a first install, kept on update only while present; welcome checkboxes), icon/key path, HKLM Software\PdfCraft Version, full-UI success/cancel/error and Finish controls, files-in-use dialog, reader-only file set (no CLI, OCR models, image menu or support URLs)'

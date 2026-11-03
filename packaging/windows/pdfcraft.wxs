@@ -104,6 +104,9 @@
         <File Id="PdfcraftExe" Source="$(var.BinDir)\pdfcraft.exe" KeyPath="yes" />
 
         <RegistryValue Root="HKLM" Key="Software\Microsoft\Windows\CurrentVersion\App Paths\pdfcraft.exe" Value="[#PdfcraftExe]" Type="string" />
+        <!-- Installed version at a fixed path for deployment checks (NinjaOne registry conditions):
+             the Uninstall key is named by the ProductCode, which changes with every build. -->
+        <RegistryValue Root="HKLM" Key="Software\PdfCraft" Name="Version" Value="[ProductVersion]" Type="string" />
 
         <!-- PDF files (#107): PdfCraft is offered under "Open with" and in Settings ▸ Default
              apps, through Windows' Default Programs registration (a ProgID, OpenWithProgids,
