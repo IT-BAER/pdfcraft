@@ -2218,6 +2218,28 @@ action wizard	Start	Starten
 	Reopen the files that were open when PdfCraft last closed	Beim Start die Dateien wieder öffnen, die beim letzten Beenden von PDF Reader geöffnet waren
 	Open each PDF in a new window	Jedes PDF in einem neuen Fenster öffnen
 	Show the hotbar	Hotbar anzeigen
+	Add tools to hotbar	Werkzeuge zur Hotbar hinzufügen
+	Close menu	Menü schließen
+	Dock navigation rail on Left	Navigationsleiste links andocken
+	Dock navigation rail on Right	Navigationsleiste rechts andocken
+	Drag hotbar	Hotbar verschieben
+	Extend the docked toolbar along the entire side. Choose a side above to enable.	Die angedockte Werkzeugleiste über die ganze Seite ziehen. Wähle oben eine Seite, um das einzuschalten.
+	Float (drag anywhere)	Frei (überallhin ziehen)
+	Freehand-Highlight	Freihand-Hervorhebung
+	Full-side strip	Leiste über die ganze Seite
+	General & Interface	Allgemein & Oberfläche
+	Hand	Hand
+	Hotbar settings	Hotbar-Einstellungen
+	Hotbar settings / add tools	Hotbar-Einstellungen / Werkzeuge hinzufügen
+	Hotbar tools	Hotbar-Werkzeuge
+	Navigation rail side	Seite der Navigationsleiste
+	Remove from hotbar	Aus der Hotbar entfernen
+	Search all tools…	Alle Werkzeuge suchen…
+	Search settings…	Einstellungen suchen…
+	Select	Auswählen
+	Stick to a side:	An einer Seite andocken:
+	Toolbar size	Größe der Werkzeugleiste
+	Vertical layout	Vertikale Anordnung
 	Restore the last view (page, zoom and page display) when a document is opened again	Beim erneuten Öffnen eines Dokuments die letzte Ansicht (Seite, Zoom und Seitenanzeige) wiederherstellen
 
 # Labels that reach tl!() through a variable (Fill & Sign buttons, link prompts, notices, history labels, checker and certificate rows)
