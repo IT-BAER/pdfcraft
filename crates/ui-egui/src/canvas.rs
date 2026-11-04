@@ -4082,7 +4082,9 @@ fn apply_frame_requests(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui, 
         // The page nearest the left edge, whose margin the bar sits in.
         let page_left = app.views[index].screen_rects.iter().map(|(_, r)| r.left()).reduce(f32::min);
         quick_bar(app, avail, page_left, ui);
-        crate::hotbar::show(app, avail, ui.ctx());
+        if app.hotbar.enabled {
+            crate::hotbar::show(app, avail, ui.ctx());
+        }
     }
     if let Some((source, file, destination)) = remote_open {
         app.open_remote_link(source, file, destination);

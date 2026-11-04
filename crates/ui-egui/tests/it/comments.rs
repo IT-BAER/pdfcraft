@@ -3116,9 +3116,32 @@ fn freehand_highlighter_draws_translucent_yellow_ink() {
     assert_eq!(h.state().views[0].comments.selected, None);
 }
 
+/// SMS build: the hotbar is hidden until Preferences turns it on, also for settings saved
+/// before the switch existed.
+#[test]
+fn hotbar_is_hidden_by_default_and_shown_when_enabled() {
+    let mut h = harness(|_| {});
+    assert!(h.query_by_label("Hotbar settings").is_none(), "the hotbar shows by default");
+    let saved: serde_json::Value = serde_json::from_str(&h.state().persist()).unwrap();
+    assert_eq!(saved["hotbar"]["enabled"], false);
+    h.state_mut().set_option("hotbar-enabled", "on").unwrap();
+    h.run_steps(3);
+    assert!(h.query_by_label("Hotbar settings").is_some(), "the enabled hotbar is not shown");
+    assert!(h.state_mut().set_option("hotbar-enabled", "maybe").is_err());
+
+    let mut old = PdfCraftApp::new();
+    old.restore(r#"{"hotbar":{"tools":["comment.ink"]}}"#);
+    let restored: serde_json::Value = serde_json::from_str(&old.persist()).unwrap();
+    assert_eq!(restored["hotbar"]["enabled"], false, "settings without the switch keep the hotbar hidden");
+    let mut kept = PdfCraftApp::new();
+    kept.restore(&h.state().persist());
+    let kept: serde_json::Value = serde_json::from_str(&kept.persist()).unwrap();
+    assert_eq!(kept["hotbar"]["enabled"], true, "an enabled hotbar stays enabled");
+}
+
 #[test]
 fn hotbar_picker_adds_and_runs_freehand_highlight() {
-    let mut h = harness(|_| {});
+    let mut h = harness(|app| app.set_option("hotbar-enabled", "on").unwrap());
     h.get_by_label("Hotbar settings").click();
     h.run_steps(3);
     field(&h, "Search all tools…").click();
@@ -3145,6 +3168,7 @@ fn hotbar_picker_adds_and_runs_freehand_highlight() {
 #[test]
 fn hotbar_picker_searches_translated_tool_labels() {
     let mut h = harness(|app| {
+        app.set_option("hotbar-enabled", "on").unwrap();
         app.set_option("language", "fr").unwrap();
     });
     h.get_by_label("Hotbar settings").click();
@@ -3161,7 +3185,7 @@ fn hotbar_picker_searches_translated_tool_labels() {
 
 #[test]
 fn hotbar_drag_moves_and_persists_position() {
-    let mut h = harness(|_| {});
+    let mut h = harness(|app| app.set_option("hotbar-enabled", "on").unwrap());
     let before: serde_json::Value = serde_json::from_str(&h.state().persist()).unwrap();
     let from = h.get_by_label("Drag hotbar").rect().center();
     drag(&mut h, from, from + egui::vec2(90.0, 90.0));
@@ -3176,6 +3200,7 @@ fn hotbar_drag_moves_and_persists_position() {
 #[test]
 fn hotbar_vertical_size_and_docking() {
     let mut h = harness(|app| {
+        app.set_option("hotbar-enabled", "on").unwrap();
         app.set_option("hotbar-tools", "comment.ink,comment.freehand_highlight").unwrap();
         app.set_option("hotbar-side", "right").unwrap();
     });
@@ -3201,7 +3226,7 @@ fn hotbar_vertical_size_and_docking() {
 
 #[test]
 fn hotbar_settings_reopen_even_with_remembered_collapsed_state() {
-    let mut h = harness(|_| {});
+    let mut h = harness(|app| app.set_option("hotbar-enabled", "on").unwrap());
     let mut collapsed =
         egui::collapsing_header::CollapsingState::load_with_default_open(&h.ctx, egui::Id::unique("hotbar-picker").with("collapsing"), false);
     collapsed.set_open(false);
@@ -3222,6 +3247,7 @@ fn hotbar_settings_reopen_even_with_remembered_collapsed_state() {
 #[test]
 fn hotbar_full_side_strip_spans_each_edge_and_returns_to_float() {
     let mut h = harness(|app| {
+        app.set_option("hotbar-enabled", "on").unwrap();
         app.set_option("hotbar-side", "right").unwrap();
         app.set_option("hotbar-size", "48").unwrap();
     });

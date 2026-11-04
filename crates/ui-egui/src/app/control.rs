@@ -26,6 +26,13 @@ impl PdfCraftApp {
             ("hotbar-full-side", _) => {
                 self.hotbar.full_side = value.parse().map_err(|_| "hotbar-full-side must be true or false")?;
             }
+            ("hotbar-enabled", _) => {
+                self.hotbar.enabled = match value {
+                    "on" => true,
+                    "off" => false,
+                    _ => return Err("hotbar-enabled must be on or off".into()),
+                };
+            }
             ("hotbar-tools", _) => self.hotbar.set_tools(value)?,
             ("hotbar-side", _) => self.hotbar.place(value)?,
             ("language", _) => {

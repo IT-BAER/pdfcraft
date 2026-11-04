@@ -9,6 +9,8 @@ use crate::{PdfCraftApp, icons, theme::Tokens};
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default)]
 pub(crate) struct Hotbar {
+    /// Drawn only when on (Preferences). Off by default, also for settings saved without it.
+    pub enabled: bool,
     pub tools: Vec<String>,
     /// Position as a fraction of the available travel, so resizing keeps the bar visible.
     pub position: [f32; 2],
@@ -23,9 +25,10 @@ pub(crate) struct Hotbar {
 }
 
 impl Default for Hotbar {
-    /// Create a default empty horizontal floating hotbar.
+    /// Create a default empty horizontal floating hotbar, hidden.
     fn default() -> Self {
         Self {
+            enabled: false,
             tools: Vec::new(),
             position: [0.5, 0.0],
             vertical: false,
