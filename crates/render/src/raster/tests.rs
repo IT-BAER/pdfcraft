@@ -6430,29 +6430,31 @@ fn draw_minified_image(
     page
 }
 
-/// Issue #624: an image drawn below its source resolution was pre-resampled with Catmull-Rom
-/// even when `/Interpolate` was false (or absent, whose PDF default is false). That blends
-/// neighboring samples before the renderer's later non-interpolating image sampler sees them,
-/// making scans, screenshots and rasterized text look soft.
+/// A shrunk image is filtered whatever its `/Interpolate`, which only asks for smoothing when an
+/// image is enlarged ("Image interpolation" in ISO 32000-2). Nearest-neighbour keeps one sample in N, so scanned
+/// text came out with stair-step edges and broken strokes (#2393, #4800).
 #[test]
-fn non_interpolated_images_are_not_smoothed_when_minified() {
+fn shrunk_images_are_filtered_whatever_their_interpolate() {
     // Top band K W R G, bottom band B Y M C. Nearest 8×4 → 4×2 sampling picks each block's
-    // pixel, so every device pixel is one palette colour; Catmull-Rom blends across blocks.
+    // pixel, so every device pixel is one palette colour; a filter blends across blocks.
     let palette: [[u8; 3]; 8] = [[0, 0, 0], [255, 255, 255], [255, 0, 0], [0, 255, 0], [0, 0, 255], [255, 255, 0], [255, 0, 255], [0, 255, 255]];
     let rgb: Vec<u8> = block_source(palette).concat();
-    let exact: Vec<[u8; 4]> = palette.iter().map(|c| [c[0], c[1], c[2], 255]).collect();
     let pixels = |p: &RenderedPage| p.rgba.as_chunks::<4>().0.to_vec();
+    let mid_tone = |p: &RenderedPage| pixels(p).iter().any(|px| px[..3].iter().any(|&c| (32..=223).contains(&c)));
 
-    // `/Interpolate` defaults to false, and explicit false is equivalent.
-    let omitted = draw_minified_image("DeviceRGB", (8, 4), None, &rgb, None, (4, 2));
-    assert_eq!(pixels(&omitted), exact, "default interpolation");
-    let disabled = draw_minified_image("DeviceRGB", (8, 4), Some(false), &rgb, None, (4, 2));
-    assert_eq!(&omitted.rgba[..], &disabled.rgba[..], "/Interpolate false must match the default");
+    for interpolate in [None, Some(false), Some(true)] {
+        let page = draw_minified_image("DeviceRGB", (8, 4), interpolate, &rgb, None, (4, 2));
+        assert!(mid_tone(&page), "/Interpolate {interpolate:?}: a shrunk image made no mid-tone");
+    }
+}
 
-    // The fix must not disable interpolation: the same source asking for it blends blocks.
-    let enabled = draw_minified_image("DeviceRGB", (8, 4), Some(true), &rgb, None, (4, 2));
-    assert_ne!(pixels(&enabled), exact, "/Interpolate true should still blend");
-    assert!(pixels(&enabled).iter().any(|px| px[..3].iter().any(|&c| (32..=223).contains(&c))), "/Interpolate true made no mid-tone");
+/// An enlarged image without `/Interpolate` keeps hard sample edges (#624): every device pixel
+/// is one of the source's two levels.
+#[test]
+fn enlarged_non_interpolated_images_stay_sharp() {
+    let page = draw_minified_image("DeviceGray", (2, 1), None, &[0, 255], None, (8, 1));
+    let grays: Vec<u8> = page.rgba.as_chunks::<4>().0.iter().map(|px| px[0]).collect();
+    assert_eq!(grays, [0, 0, 0, 0, 255, 255, 255, 255]);
 }
 
 /// A shrunk, interpolated image whose edges fall between device pixels is snapped to whole
@@ -6562,54 +6564,80 @@ fn a_turned_or_mirrored_minified_image_snaps_to_whole_pixels() {
 }
 
 #[test]
-fn non_interpolated_gray_images_are_not_smoothed_when_minified() {
+fn shrunk_gray_images_are_filtered() {
     let levels = [0u8, 255, 85, 170, 40, 200, 120, 230];
     let page = draw_minified_image("DeviceGray", (8, 4), None, &block_source(levels), None, (4, 2));
-    let expected: Vec<[u8; 4]> = levels.iter().map(|&v| [v, v, v, 255]).collect();
-    assert_eq!(page.rgba.as_chunks::<4>().0.to_vec(), expected);
-}
-
-#[test]
-fn non_integer_minification_samples_the_same_columns() {
-    // Ten columns drawn six pixels wide: centre sampling reads columns 0, 2, 4, 5, 7 and 9.
-    let ramp = [10u8, 20, 30, 40, 50, 60, 70, 80, 90, 100];
-    let page = draw_minified_image("DeviceGray", (10, 1), None, &ramp, None, (6, 1));
     let grays: Vec<u8> = page.rgba.as_chunks::<4>().0.iter().map(|px| px[0]).collect();
-    assert_eq!(grays, [10, 30, 50, 60, 80, 100]);
+    assert!(grays.iter().any(|g| !levels.contains(g)), "a shrunk gray image kept only source levels: {grays:?}");
 }
 
+/// An 8×1 page image whose shape is a one-column stroke in column 2, drawn 4 pixels wide.
+/// Nearest-neighbour reads columns 1, 3, 5 and 7 and misses the stroke; a filter keeps it as a
+/// mid-tone in device pixel 1. `mask` is the mask object (object 6) and `image_extra` what the
+/// image dictionary adds to point at it.
+fn thin_stroke_page(image: &str, image_extra: &str, mask: &str) -> Vec<u8> {
+    let content = "q 4 0 0 1 0 0 cm /Im0 Do Q";
+    format!(
+        "%PDF-1.4\n1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n\
+             2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj\n\
+             3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 4 1] /Contents 4 0 R /Resources << /XObject << /Im0 5 0 R >> >> >> endobj\n\
+             4 0 obj << /Length {} >> stream\n{content}\nendstream endobj\n\
+             5 0 obj << /Type /XObject /Subtype /Image /Width 8 /Height 1 {image_extra}{image}\nendstream endobj\n\
+             {mask}trailer << /Root 1 0 R >>\n%%EOF\n",
+        content.len(),
+    )
+    .into_bytes()
+}
+
+fn thin_stroke_grays(pdf: Vec<u8>) -> Vec<u8> {
+    let mut renderer = PageRenderer::new(Arc::new(pdf), RenderConfig::default());
+    let page = renderer.render(RenderRequest { page: 0, kind: RequestKind::Pixels, scale: 1.0, ..Default::default() });
+    assert!(page.error.is_none(), "{:?}", page.error);
+    assert_eq!((page.width, page.height), (4, 1));
+    page.rgba.as_chunks::<4>().0.iter().map(|px| px[0]).collect()
+}
+
+/// A shrunk soft mask of its image's size is filtered, as one of another size is (#1649).
 #[test]
-fn non_integer_minification_samples_colour_and_mask_from_the_same_columns() {
-    // Ten gray columns with a soft mask, drawn six pixels wide: columns 0, 2, 4, 5, 7 and 9 are
-    // sampled, so the mask must pick the same columns as the colours.
-    let ramp = [10u8, 20, 30, 40, 50, 60, 70, 80, 90, 100];
-    let mask = [255u8, 0, 0, 0, 255, 255, 0, 0, 0, 255];
-    let page = draw_minified_image("DeviceGray", (10, 1), None, &ramp, Some(&mask), (6, 1));
-    // Opaque columns keep their gray; transparent columns show the white page.
-    assert_eq!(
-        page.rgba.as_chunks::<4>().0.to_vec(),
-        vec![[10, 10, 10, 255], [255, 255, 255, 255], [50, 50, 50, 255], [60, 60, 60, 255], [255, 255, 255, 255], [100, 100, 100, 255]]
+fn shrunk_soft_mask_of_its_image_size_keeps_thin_strokes() {
+    let mask = [0u8, 0, 255, 0, 0, 0, 0, 0];
+    let pdf = thin_stroke_page(
+        "/ColorSpace /DeviceGray /BitsPerComponent 8 /Filter /ASCIIHexDecode /Length 17 >> stream\n0000000000000000>",
+        "/SMask 6 0 R ",
+        &format!(
+            "6 0 obj << /Type /XObject /Subtype /Image /Width 8 /Height 1 /ColorSpace /DeviceGray /BitsPerComponent 8 /Filter /ASCIIHexDecode /Length {} >> stream\n{}>\nendstream endobj\n",
+            hex(&mask).len() + 1,
+            hex(&mask)
+        ),
     );
+    let grays = thin_stroke_grays(pdf);
+    assert!((64..=191).contains(&grays[1]), "the stroke is lost or not a mid-tone: {grays:?}");
+    assert_eq!(grays[3], 255, "{grays:?}");
 }
 
+/// A scanned page's text is often a 1-bit `/ImageMask` stencil (CCITT or JBIG2) drawn smaller
+/// than its resolution (#4800). Sample 0 paints, so `DF` is a stroke in column 2.
 #[test]
-fn non_interpolated_alpha_images_keep_their_colours_and_mask_when_minified() {
-    let palette: [[u8; 3]; 8] = [[0, 0, 0], [255, 255, 255], [255, 0, 0], [0, 255, 0], [0, 0, 255], [255, 255, 0], [255, 0, 255], [0, 255, 255]];
-    let rgb: Vec<u8> = block_source(palette).concat();
-    let alpha = block_source([255u8, 0, 128, 255, 0, 255, 64, 128]);
-    let page = draw_minified_image("DeviceRGB", (8, 4), None, &rgb, Some(&alpha), (4, 2));
-    // Premultiplied colours composited over the white page: alpha 0 shows the page.
-    let expected = vec![
-        [0, 0, 0, 255],
-        [255, 255, 255, 255],
-        [255, 127, 127, 255],
-        [0, 255, 0, 255],
-        [255, 255, 255, 255],
-        [255, 255, 0, 255],
-        [255, 191, 255, 255],
-        [127, 255, 255, 255],
-    ];
-    assert_eq!(page.rgba.as_chunks::<4>().0.to_vec(), expected);
+fn shrunk_stencil_mask_keeps_thin_strokes() {
+    let pdf = thin_stroke_page("/ImageMask true /BitsPerComponent 1 /Filter /ASCIIHexDecode /Length 3 >> stream\nDF>", "", "");
+    let grays = thin_stroke_grays(pdf);
+    assert!((64..=191).contains(&grays[1]), "the stroke is lost or not a mid-tone: {grays:?}");
+    assert_eq!(grays[3], 255, "{grays:?}");
+}
+
+/// A mixed-raster scan (scanner MRC output) draws its text as a colour image whose `/Mask` is a
+/// 1-bit stencil of the same size. Shrunk by nearest-neighbour, colour and mask kept one sample in
+/// N together and the text came out jagged.
+#[test]
+fn shrunk_image_with_a_stencil_mask_keeps_thin_strokes() {
+    let pdf = thin_stroke_page(
+        "/ColorSpace /DeviceGray /BitsPerComponent 8 /Filter /ASCIIHexDecode /Length 17 >> stream\n0000000000000000>",
+        "/Mask 6 0 R ",
+        "6 0 obj << /Type /XObject /Subtype /Image /Width 8 /Height 1 /ImageMask true /BitsPerComponent 1 /Filter /ASCIIHexDecode /Length 3 >> stream\nDF>\nendstream endobj\n",
+    );
+    let grays = thin_stroke_grays(pdf);
+    assert!((64..=191).contains(&grays[1]), "the stroke is lost or not a mid-tone: {grays:?}");
+    assert_eq!(grays[3], 255, "{grays:?}");
 }
 
 /// Issue #1649: Word can save text as a tiny black image whose `/SMask` is a high-resolution
@@ -6643,13 +6671,11 @@ fn shrunk_soft_mask_larger_than_its_image_keeps_thin_strokes() {
     assert_eq!(grays[3], 255, "{grays:?}");
 }
 
-/// Type 3 glyph images used to be sampled bicubically (`ImageQuality::High`) whatever their
-/// `/Interpolate`, which blends the nearest pre-resize back in. The glyph is 4.6 × 2.3 pixels
-/// and its image pre-resizes to 5 × 3, so the final draw samples fractionally and bicubic
-/// filtering would blend palette colours. Interior pixels must stay palette colours unless the
-/// image asks for interpolation.
+/// A Type 3 glyph image drawn smaller than its samples is filtered whatever its `/Interpolate`,
+/// like any shrunk image. The glyph is 4.6 × 2.3 pixels from an 8 × 4 palette image, so its
+/// interior pixels blend palette colours.
 #[test]
-fn non_interpolated_type3_glyph_images_are_not_smoothed_when_minified() {
+fn shrunk_type3_glyph_images_are_filtered() {
     let palette: [[u8; 3]; 8] = [[0, 0, 0], [255, 255, 255], [255, 0, 0], [0, 255, 0], [0, 0, 255], [255, 255, 0], [255, 0, 255], [0, 255, 255]];
     let data = hex(&block_source(palette).concat());
     let render = |interp: &str| {
@@ -6679,12 +6705,10 @@ fn non_interpolated_type3_glyph_images_are_not_smoothed_when_minified() {
         (0..2).flat_map(|y| (0..4).map(move |x| (y * 5 + x) * 4)).map(|i| [p.rgba[i], p.rgba[i + 1], p.rgba[i + 2]]).collect()
     };
 
-    let omitted = render("");
-    for px in interior(&omitted) {
-        assert!(palette.contains(&px), "non-interpolated glyph image was smoothed to {px:?}");
+    for interp in ["", "/Interpolate false ", "/Interpolate true "] {
+        let page = render(interp);
+        assert!(interior(&page).iter().any(|px| !palette.contains(px)), "{interp:?}: a shrunk glyph image kept only palette colours");
     }
-    let enabled = render("/Interpolate true ");
-    assert!(interior(&enabled).iter().any(|px| !palette.contains(px)), "/Interpolate true glyph image should still be sampled bicubically");
 }
 
 /// From `cargo xtask fuzz`: a CID font whose /W range spans every u32 inserted billions of

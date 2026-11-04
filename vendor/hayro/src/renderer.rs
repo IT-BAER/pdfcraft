@@ -750,11 +750,9 @@ impl Renderer {
         pixel_format: ImagePixelFormat,
         interpolate: bool,
     ) -> (Vec<u8>, u32, u32) {
-        // PdfCraft patch (#624): `/Interpolate` governs the pre-minification pass too. Using
-        // Catmull-Rom here for an image that did not request interpolation blends hard edges
-        // before ImageQuality::Low gets a chance to sample it. Keep the pre-resize (and its
-        // bounded memory/performance behaviour), but use nearest-neighbour when interpolation
-        // is disabled. PDF's default for `/Interpolate` is false.
+        // PdfCraft patch (#624): nearest-neighbour for an image left uninterpolated. `draw_image`
+        // marks every shrunk image interpolated unless the filter refuses its source, so only
+        // those sources reach this pass with `interpolate` false.
         let nearest = Scaler::new(ResamplingFunction::Nearest);
         let scaler = if interpolate { &self.scaler } else { &nearest };
         let resized = match pixel_format {
@@ -903,7 +901,7 @@ impl Renderer {
         Some((target_width, target_height))
     }
 
-    fn draw_image(&mut self, image_data: ImageData, alpha_data: Option<LumaData>) {
+    fn draw_image(&mut self, mut image_data: ImageData, mut alpha_data: Option<LumaData>) {
         let cur_transform = *self.ctx.transform();
         let (x_scale, y_scale) = {
             let (x, y) = x_y_advances(&cur_transform);
@@ -933,6 +931,36 @@ impl Renderer {
         {
             log::warn!("Image has invalid or over-limit source dimensions/data and was skipped");
             return;
+        }
+        // PdfCraft patch: a shrunk image and its same-sized mask are filtered whatever their
+        // `/Interpolate`, which asks for smoothing only when an image is enlarged. Nearest keeps one
+        // sample in N, so scanned text came out jagged (#2393, #4800); a shrunk mask of another size
+        // is filtered in `draw_image_with_alpha_mask` (#1649). Enlarged images stay nearest (#624),
+        // and so does a source the filter refuses (see `resampling_byte_len`).
+        if (x_scale < 1.0 || y_scale < 1.0)
+            && !image_data.interpolate()
+            && image_resampling_size(
+                source_width,
+                source_height,
+                channels,
+                data_len,
+                x_scale,
+                y_scale,
+                MAX_IMAGE_PIXELS,
+                true,
+            )
+            .is_some()
+        {
+            match &mut image_data {
+                ImageData::Rgb(data) => data.interpolate = true,
+                ImageData::Luma(data) => data.interpolate = true,
+            }
+            if let Some(alpha) = alpha_data
+                .as_mut()
+                .filter(|a| (a.width, a.height) == (source_width, source_height))
+            {
+                alpha.interpolate = true;
+            }
         }
         let interpolate = image_data.interpolate();
         if let Some(a) = &alpha_data {
@@ -1002,8 +1030,9 @@ impl Renderer {
         let (new_width, new_height) = snapped.map_or((new_width, new_height), |s| (s.0, s.1));
         let needs_resize = (new_width, new_height) != (source_width, source_height);
 
-        // PdfCraft patch (#624): a minified image with a soft mask that is not interpolated is
-        // nearest-sampled straight into premultiplied target RGBA. That skips the full-resolution
+        // PdfCraft patch (#624): a minified image with a soft mask that is not interpolated (a
+        // source the filter refuses) is nearest-sampled straight into premultiplied target RGBA.
+        // That skips the full-resolution
         // RGBA copy below and the premultiply pass after it.
         let direct = match &alpha_data {
             Some(alpha) if needs_resize && !interpolate => nearest_premultiplied_rgba(
