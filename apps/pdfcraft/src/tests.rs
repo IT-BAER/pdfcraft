@@ -94,6 +94,23 @@ fn the_reader_prints_on_a4_and_writes_dd_mm_yyyy_until_the_user_picks_others() {
 }
 
 #[test]
+fn the_reader_prints_on_a4_after_settings_saved_by_an_older_install() {
+    use pdfcraft_engine::print::PAPERS;
+    // Builds before the A4 default saved US Letter with every setting.
+    let older_install = pdfcraft_ui_egui::PdfCraftApp::new().persist();
+    assert!(older_install.contains(r#""print_paper":"US Letter""#), "{older_install}");
+    let mut app = pdfcraft_ui_egui::PdfCraftApp::new();
+    super::reader_view_defaults(&mut app);
+    app.restore(&older_install);
+    super::reader_settings_restored(&mut app);
+    assert_eq!(PAPERS[app.print_draft.paper].0, "A4");
+    // Any other saved paper is the user's choice and stays.
+    app.restore(r#"{"print_paper":"A3"}"#);
+    super::reader_settings_restored(&mut app);
+    assert_eq!(PAPERS[app.print_draft.paper].0, "A3");
+}
+
+#[test]
 fn the_first_window_opens_maximized() {
     // A saved window state replaces this on later runs (egui-winit WindowSettings).
     let options = super::native_options(false, false, eframe::Renderer::Glow);
