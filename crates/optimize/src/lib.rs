@@ -25,6 +25,9 @@
 //! Metadata, attachments, comments, scripts, private data, hidden layers, bookmarks and form
 //! fields are discarded by `pdfcraft-redact`'s Remove Hidden Information, which the engine
 //! runs alongside.
+//!
+//! Apart from optimizing, [`tile_large_images`] redraws large pictures as tiles in the copy of a
+//! document printed on Windows, whose PDF renderer shrinks any image over 2²² pixels.
 
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
 
@@ -32,6 +35,7 @@ mod audit;
 pub mod fragments;
 mod images;
 mod links;
+mod tiles;
 mod unused;
 
 pub use audit::{SpaceCategory, SpaceUse, audit_space};
@@ -40,6 +44,7 @@ use pdfcraft_cos::{Dict, Document, ImageBudget, MAX_PAGE_DECODED, ObjRef, Object
 use pdfcraft_filters::{Filter, Params};
 
 pub use images::effective_resolutions;
+pub use tiles::{DOWNSAMPLED_ABOVE, TileReport, tile_large_images};
 
 #[derive(Debug, thiserror::Error)]
 pub enum OptimizeError {
