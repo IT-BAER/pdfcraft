@@ -153,3 +153,8 @@ eframe = { git = "https://github.com/storytold/egui.git", rev = "6d518fc79968157
 egui_demo_lib = { git = "https://github.com/storytold/egui.git", rev = "6d518fc799681571963842f95b55a6b68431b15a" }
 egui_inspection = { git = "https://github.com/storytold/egui.git", rev = "6d518fc799681571963842f95b55a6b68431b15a" }
 winit = { git = "https://github.com/storytold/winit.git", rev = "a517b3846ee8457d84ee4975110bfda6797c44dc" }
+
+# SMS build: Windows prints each page at the driver's resolution, not ~96 dpi (storytold/pdfcraft#5023).
+# f623113 lives in the storytold fork; Cargo needs another URL of the same GitHub network to patch it.
+[patch."https://github.com/storytold/winprint.rs"]
+winprint = { git = "https://github.com/ArcticLampyrid/winprint.rs", rev = "f6231139b1af7a78635c7971cdf4f2aba4170b87" }

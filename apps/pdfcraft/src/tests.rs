@@ -93,6 +93,14 @@ fn the_reader_prints_on_a4_and_writes_dd_mm_yyyy_until_the_user_picks_others() {
     assert_eq!((PAPERS[app.print_draft.paper].0, app.session.date_format()), ("US Legal", "yyyy-mm-dd"), "saved choices win");
 }
 
+/// winprint before `f623113` drew each page at about 96 dpi (storytold/pdfcraft#5023).
+#[test]
+fn windows_printing_uses_the_winprint_that_renders_at_the_drivers_resolution() {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let winprint = locked_package(&root, "winprint");
+    assert!(winprint.contains("#f6231139b1af7a78635c7971cdf4f2aba4170b87\""), "{winprint}");
+}
+
 #[test]
 fn the_reader_opens_each_pdf_in_a_new_window_until_the_user_turns_it_off() {
     let mut app = pdfcraft_ui_egui::PdfCraftApp::new();
