@@ -409,6 +409,7 @@ fn app_creator<'a>(
         if let Some(json) = cc.storage.and_then(|s| s.get_string("pdfcraft").or_else(|| s.get_string(LEGACY_STORAGE_KEY))) {
             app.restore(&json);
         }
+        reader_settings_restored(&mut app);
         app.window_state = pdfcraft_ui_egui::window_state::WindowState::started_with(cc.storage);
         app.integrated_titlebar = integrated;
         app.window_controls = window_controls;
@@ -848,6 +849,17 @@ fn reader_view_defaults(app: &mut PdfCraftApp) {
     }
     if let Err(e) = app.session.set_date_format("dd.mm.yyyy") {
         log::warn!("reader date format: {e}");
+    }
+}
+
+/// After the saved settings load: builds before the A4 default saved US Letter with every
+/// setting, so a saved US Letter reads as A4. Limit: Letter must be picked again each session.
+fn reader_settings_restored(app: &mut PdfCraftApp) {
+    let papers = &pdfcraft_engine::print::PAPERS;
+    if papers.get(app.print_draft.paper).is_some_and(|(name, _)| *name == "US Letter")
+        && let Some(a4) = papers.iter().position(|(name, _)| *name == "A4")
+    {
+        app.print_draft.paper = a4;
     }
 }
 
