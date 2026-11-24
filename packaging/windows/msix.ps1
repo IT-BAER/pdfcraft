@@ -10,8 +10,9 @@
   Needs makeappx.exe and signtool.exe from the Windows SDK.
   The package's PdfCraft folders in %LOCALAPPDATA% and %APPDATA% are excluded from write
   virtualization (Windows 11; capability unvirtualizedResources): the single-instance socket must be
-  a real file there, or a second launch can't hand its file to the first window. The MSIX therefore
-  shares settings with an installed MSI; both register .pdf, so deploy one or the other to a PC.
+  a real file there, or a second launch can't hand its file to the first window. On Windows 11 the
+  MSIX therefore shares settings with an installed MSI (Windows 10 ignores the exclusion: separate
+  settings, one window per file); both register .pdf, so deploy one or the other to a PC.
 .EXAMPLE
   pwsh packaging/windows/package.ps1; pwsh packaging/windows/msix.ps1
 #>

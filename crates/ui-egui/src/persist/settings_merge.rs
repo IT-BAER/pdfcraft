@@ -48,21 +48,22 @@ pub(crate) fn read_saved(path: &std::path::Path) -> Option<Value> {
     serde_json::from_str(map.get("pdfcraft")?).ok()
 }
 
-/// This window's list of files (`mine`), then the entries of `theirs` for files that neither it
-/// nor `base` names (added by another window), at most `cap`. A malformed list keeps `mine`.
+/// Two windows' lists of files, most recent first, at most `cap`: the entries this window added
+/// or changed since `base`, then the files another window added (named by `theirs` but neither
+/// `base` nor `mine`), then this window's other entries that `theirs` still names (a file another
+/// window removed, by Clear recent say, stays removed). A malformed list keeps `mine`.
 fn merge_files(base: Option<&Value>, mine: &Value, theirs: &Value, cap: usize) -> Value {
     let (Some(mine), Some(theirs)) = (mine.as_array(), theirs.as_array()) else { return mine.clone() };
     let path = |e: &Value| e.get("path").and_then(Value::as_str).map(str::to_string);
-    let base: Vec<String> = base.and_then(Value::as_array).map(|b| b.iter().filter_map(path).collect()).unwrap_or_default();
-    let mut out = mine.clone();
-    for entry in theirs {
-        let Some(p) = path(entry) else { continue };
-        if !base.contains(&p) && !out.iter().any(|o| path(o).as_ref() == Some(&p)) {
-            out.push(entry.clone());
-        }
-    }
-    out.truncate(cap);
-    Value::Array(out)
+    let base = base.and_then(Value::as_array).map(Vec::as_slice).unwrap_or_default();
+    let named = |list: &[Value], p: &Option<String>| p.is_some() && list.iter().any(|e| path(e) == *p);
+    let (fresh, kept): (Vec<&Value>, Vec<&Value>) = mine.iter().partition(|e| !base.contains(e));
+    let added = theirs.iter().filter(|e| {
+        let p = path(e);
+        p.is_some() && !named(base, &p) && !named(mine, &p)
+    });
+    let still = kept.into_iter().filter(|e| named(theirs, &path(e)));
+    Value::Array(fresh.into_iter().chain(added).chain(still).take(cap).cloned().collect())
 }
 
 #[cfg(test)]
@@ -91,12 +92,33 @@ mod tests {
         let mine = json!({ "recent": [entry("b.pdf"), entry("old.pdf")], "recent_limit": 3 });
         let theirs = json!({ "recent": [entry("a.pdf"), entry("c.pdf"), entry("old.pdf")], "recent_limit": 3 });
         let merged = merge(&base, mine, &theirs);
-        // Capped at this window's limit.
-        assert_eq!(merged["recent"], json!([entry("b.pdf"), entry("old.pdf"), entry("a.pdf")]));
+        // This window's new file, then the other window's, capped at this window's limit.
+        assert_eq!(merged["recent"], json!([entry("b.pdf"), entry("a.pdf"), entry("c.pdf")]));
         // A file this window removed from the list stays removed.
         let mine = json!({ "recent": [entry("b.pdf")], "recent_limit": 3 });
         let theirs = json!({ "recent": [entry("old.pdf")], "recent_limit": 3 });
         assert_eq!(merge(&base, mine, &theirs)["recent"], json!([entry("b.pdf")]));
+    }
+
+    /// Settings store at most the limit, so a full list has no room at its end: another window's
+    /// file goes before this window's older ones.
+    #[test]
+    fn a_full_recent_list_keeps_the_file_another_window_opened() {
+        let entry = |p: &str| json!({ "name": p, "path": p, "pages": 1, "size": 1 });
+        let base = json!({ "recent": [entry("o1"), entry("o2"), entry("o3")], "recent_limit": 3 });
+        let mine = json!({ "recent": [entry("b"), entry("o1"), entry("o2")], "recent_limit": 3 });
+        let theirs = json!({ "recent": [entry("a"), entry("o1"), entry("o2")], "recent_limit": 3 });
+        assert_eq!(merge(&base, mine, &theirs)["recent"], json!([entry("b"), entry("a"), entry("o1")]));
+    }
+
+    /// Clear recent (or a file removed) in another window stays cleared.
+    #[test]
+    fn recent_files_another_window_removed_stay_removed() {
+        let entry = |p: &str| json!({ "name": p, "path": p, "pages": 1, "size": 1 });
+        let base = json!({ "recent": [entry("o1"), entry("o2")], "recent_limit": 12 });
+        let mine = json!({ "recent": [entry("b"), entry("o1"), entry("o2")], "recent_limit": 12 });
+        assert_eq!(merge(&base, mine.clone(), &json!({ "recent": [] }))["recent"], json!([entry("b")]));
+        assert_eq!(merge(&base, mine, &json!({ "recent": [entry("o2")] }))["recent"], json!([entry("b"), entry("o2")]));
     }
 
     #[test]
