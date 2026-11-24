@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   Check the compiled MSI's install scope, publisher, shortcuts, native UI and the SMS reader file set, without installing it.
 .EXAMPLE
