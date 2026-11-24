@@ -75,6 +75,10 @@ pub const MIN_WINDOW_SIZE: [f32; 2] = [480.0, 520.0];
 pub use editing::{CloseRequest, SaveTarget};
 pub use files::{ExtractDraft, FilePurpose, FileRequest, RotateDraft, SplitDraft, SplitMode, SplitPlan};
 pub use recovery::{AUTOSAVE_SECS, RecoveryMeta, RecoveryStore, default_dictionary_dir};
+
+/// The app name users see (window title, About). Settings folders, registry keys and the
+/// executable keep the internal name PdfCraft, so updates find what an older build left.
+pub const DISPLAY_NAME: &str = "PDF Reader";
 use theme::{ThemeKind, ThemePreference};
 pub use workflows::ocr_verify::{OcrVerify, Phase};
 
