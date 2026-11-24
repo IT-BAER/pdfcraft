@@ -202,6 +202,32 @@ impl PdfCraftApp {
         v.to_string()
     }
 
+    /// Merge saves with `file`, the settings file other windows of the app save to as well. Call
+    /// it once the saved settings are restored.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn merge_saves_with(&mut self, file: std::path::PathBuf) {
+        self.settings_base = serde_json::from_str(&self.persist()).ok();
+        self.settings_file = Some(file);
+    }
+
+    /// What a save stores: [`Self::persist`], merged with the settings file when
+    /// [`Self::merge_saves_with`] named one, so another window's changes survive this save.
+    pub(crate) fn settings_to_store(&mut self) -> String {
+        let own = self.persist();
+        #[cfg(not(target_arch = "wasm32"))]
+        if let Some(file) = &self.settings_file
+            && let Ok(mine) = serde_json::from_str::<serde_json::Value>(&own)
+        {
+            let merged = match (&self.settings_base, crate::persist::settings_merge::read_saved(file)) {
+                (Some(base), Some(theirs)) => crate::persist::settings_merge::merge(base, mine.clone(), &theirs).to_string(),
+                _ => own,
+            };
+            self.settings_base = Some(mine);
+            return merged;
+        }
+        own
+    }
+
     /// Restore state written by `persist`. Unknown or malformed data is ignored.
     pub fn restore(&mut self, json: &str) {
         let Ok(v) = serde_json::from_str::<serde_json::Value>(json) else { return };

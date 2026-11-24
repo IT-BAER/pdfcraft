@@ -482,6 +482,12 @@ pub struct PdfCraftApp {
     pub last_session: last_session::LastSession,
     /// Quitting closes unsaved tabs one by one: what was open when the quit began.
     quit_session: Option<last_session::LastSession>,
+    /// The settings file other windows save to as well; a save merges with it (`settings_merge`).
+    #[cfg(not(target_arch = "wasm32"))]
+    settings_file: Option<std::path::PathBuf>,
+    /// This window's settings when it last loaded or saved them: the merge's base.
+    #[cfg(not(target_arch = "wasm32"))]
+    settings_base: Option<serde_json::Value>,
     /// Preferences: reload a document when its file changes on disk (#431).
     pub reload_changed_files: bool,
     /// Preferences: tell the user, above the pages, that a document is secured (its security

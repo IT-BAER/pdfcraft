@@ -112,6 +112,11 @@ fn settings_dir() -> Option<std::path::PathBuf> {
     }
 }
 
+/// eframe's settings file in [`settings_dir`].
+fn settings_file() -> Option<std::path::PathBuf> {
+    settings_dir().map(|d| d.join("app.ron"))
+}
+
 /// Move the settings and crash-recovery folders of the app's former name, PrintCraft, to the new
 /// name once, so an upgrade keeps recent files, preferences and unsaved work. Best effort: a
 /// folder is left alone when the new one already exists or the move fails. A portable copy leaves
@@ -371,7 +376,7 @@ fn native_options(integrated: bool, app_frame: bool, renderer: eframe::Renderer)
         // The tab strip is the title bar (pdfcraft_ui_egui::window_controls).
         viewport = viewport.with_decorations(false);
     }
-    let persistence_path = settings_dir().map(|d| d.join("app.ron"));
+    let persistence_path = settings_file();
     // Set explicitly, so the renderer never depends on which one eframe defaults to.
     let mut native = eframe::NativeOptions { viewport, persistence_path, renderer, ..Default::default() };
     // PdfCraft installs its own last-resort system face (`PDFCRAFT_SYSTEM_FONTS`); eframe's
@@ -474,6 +479,11 @@ fn app_creator<'a>(
             app.restore(&json);
         }
         reader_settings_restored(&mut app);
+        // Windows of their own (Preferences ▸ Open each PDF in a new window) share one settings
+        // file: a save keeps what the other windows changed.
+        if let Some(file) = settings_file() {
+            app.merge_saves_with(file);
+        }
         app.window_state = pdfcraft_ui_egui::window_state::WindowState::started_with(cc.storage);
         app.integrated_titlebar = integrated;
         app.window_controls = window_controls;

@@ -156,6 +156,10 @@ impl PdfCraftApp {
             last_views: Vec::new(),
             last_session: Default::default(),
             quit_session: None,
+            #[cfg(not(target_arch = "wasm32"))]
+            settings_file: None,
+            #[cfg(not(target_arch = "wasm32"))]
+            settings_base: None,
             reload_changed_files: true,
             show_secured_notice: true,
             text_links: true,
@@ -564,7 +568,7 @@ impl eframe::App for PdfCraftApp {
             let minimized = self.ctx.as_ref().is_some_and(|c| c.input(|i| i.viewport().minimized == Some(true)));
             self.window_state.keep(storage, minimized);
         }
-        storage.set_string("pdfcraft", self.persist());
+        storage.set_string("pdfcraft", self.settings_to_store());
     }
 
     /// Each frame's work before drawing: opens, operating-system and control-channel requests,

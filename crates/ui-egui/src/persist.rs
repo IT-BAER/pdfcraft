@@ -3,6 +3,8 @@ pub mod last_view;
 pub mod paper;
 pub(crate) mod recent_check;
 pub(super) mod recovery;
+#[cfg(not(target_arch = "wasm32"))]
+pub(crate) mod settings_merge;
 pub mod units;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod window_state;

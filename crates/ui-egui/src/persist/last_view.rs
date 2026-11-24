@@ -9,7 +9,7 @@ use crate::PdfCraftApp;
 use crate::canvas::{self, ViewDefaults};
 
 /// How many files' views are remembered (the most recently closed or saved first).
-const MAX_REMEMBERED: usize = 100;
+pub(crate) const MAX_REMEMBERED: usize = 100;
 
 /// How a file was last shown.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]

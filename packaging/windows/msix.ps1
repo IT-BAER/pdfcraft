@@ -8,8 +8,10 @@
   subject, so it is read from WINDOWS_CERTIFICATE_THUMBPRINT's certificate in CurrentUser\My;
   without one the package uses "CN=SMS group" and stays unsigned (it then can't be installed).
   Needs makeappx.exe and signtool.exe from the Windows SDK.
-  Installed side by side with the MSI, both register .pdf and keep separate settings (MSIX
-  redirects %APPDATA% writes into the package), so deploy one or the other to a PC.
+  The package's PdfCraft folders in %LOCALAPPDATA% and %APPDATA% are excluded from write
+  virtualization (Windows 11; capability unvirtualizedResources): the single-instance socket must be
+  a real file there, or a second launch can't hand its file to the first window. The MSIX therefore
+  shares settings with an installed MSI; both register .pdf, so deploy one or the other to a PC.
 .EXAMPLE
   pwsh packaging/windows/package.ps1; pwsh packaging/windows/msix.ps1
 #>
@@ -77,12 +79,19 @@ $xmlPublisher = [System.Security.SecurityElement]::Escape($Publisher)
 <Package xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
          xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
          xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
-         IgnorableNamespaces="uap rescap">
+         xmlns:virtualization="http://schemas.microsoft.com/appx/manifest/virtualization/windows10"
+         IgnorableNamespaces="uap rescap virtualization">
   <Identity Name="SMSgroup.PDFReader" Publisher="$xmlPublisher" Version="$PackageVersion" ProcessorArchitecture="$Arch" />
   <Properties>
     <DisplayName>PDF Reader</DisplayName>
     <PublisherDisplayName>SMS group</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
+    <virtualization:FileSystemWriteVirtualization>
+      <virtualization:ExcludedDirectories>
+        <virtualization:ExcludedDirectory>`$(KnownFolder:LocalAppData)\PdfCraft</virtualization:ExcludedDirectory>
+        <virtualization:ExcludedDirectory>`$(KnownFolder:RoamingAppData)\PdfCraft</virtualization:ExcludedDirectory>
+      </virtualization:ExcludedDirectories>
+    </virtualization:FileSystemWriteVirtualization>
   </Properties>
   <Dependencies>
     <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.26100.0" />
@@ -109,6 +118,7 @@ $xmlPublisher = [System.Security.SecurityElement]::Escape($Publisher)
   </Applications>
   <Capabilities>
     <rescap:Capability Name="runFullTrust" />
+    <rescap:Capability Name="unvirtualizedResources" />
   </Capabilities>
 </Package>
 "@ | Set-Content -Encoding utf8NoBOM (Join-Path $Pack 'AppxManifest.xml')
