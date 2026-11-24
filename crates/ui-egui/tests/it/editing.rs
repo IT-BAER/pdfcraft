@@ -597,6 +597,61 @@ fn closing_a_dirty_tab_can_save_first() {
     let _ = std::fs::remove_file(out);
 }
 
+/// SMS build (#2674): ⇧⌘+ / ⇧⌘− (and the rail button, View ▸ Rotate pages, the page menu) turn
+/// every page as one undoable edit, so Save keeps the turn, and the view stays upright, so text
+/// added afterwards is upright as shown.
+#[test]
+fn rotating_turns_every_page_and_saving_keeps_it() {
+    let rotations = |h: &Harness<'static, PdfCraftApp>| {
+        let app = h.state();
+        let doc = app.session.get(app.views[0].id).unwrap();
+        (app.views[0].rotation, doc.info.pages.iter().map(|p| p.rotation).collect::<Vec<_>>())
+    };
+    let out = temp_path("turned.pdf");
+    let mut h = harness(2, |_| {});
+    h.state_mut().save_override = Some(out.to_string_lossy().into_owned());
+    h.key_press_modifiers(Modifiers::COMMAND | Modifiers::SHIFT, Key::Plus);
+    h.run_steps(3);
+    assert_eq!(rotations(&h), (0, vec![90, 90]), "the pages turn, not the view");
+    {
+        let app = h.state();
+        let doc = app.session.get(app.views[0].id).unwrap();
+        assert!(doc.dirty);
+        assert_eq!(doc.can_undo(), Some("Rotate pages"));
+    }
+    for _ in 0..2 {
+        h.key_press_modifiers(Modifiers::COMMAND | Modifiers::SHIFT, Key::Minus);
+        h.run_steps(3);
+    }
+    assert_eq!(rotations(&h), (0, vec![270, 270]));
+    assert!(h.state_mut().save_active(pdfcraft_ui_egui::SaveTarget::InPlace));
+    h.run_steps(2);
+    let saved = pdfcraft_render::inspect(std::sync::Arc::new(std::fs::read(&out).unwrap()), None).unwrap();
+    assert_eq!(saved.pages.iter().map(|p| p.rotation).collect::<Vec<_>>(), [270, 270]);
+    let _ = std::fs::remove_file(out);
+}
+
+/// A file that refuses page changes can still be read turned: only the view turns.
+#[test]
+fn rotating_a_file_that_refuses_page_changes_turns_only_the_view() {
+    let bytes = protected("", "owner", 0b0100);
+    let mut h = Harness::builder().with_size(egui::vec2(1400.0, 900.0)).build_eframe(move |_cc| {
+        let mut app = PdfCraftApp::new();
+        app.set_option("language", "en").unwrap();
+        app.open_bytes("protected.pdf", None, bytes.clone()).expect("opens");
+        app
+    });
+    h.run_steps(4);
+    h.key_press_modifiers(Modifiers::COMMAND | Modifiers::SHIFT, Key::Plus);
+    h.run_steps(3);
+    let app = h.state();
+    let doc = app.session.get(app.views[0].id).unwrap();
+    assert!(!doc.allows_assembly());
+    assert_eq!(app.views[0].rotation, 90);
+    assert_eq!(doc.info.pages.iter().map(|p| p.rotation).collect::<Vec<_>>(), [0, 0]);
+    assert!(!doc.dirty);
+}
+
 #[test]
 fn the_save_prompt_answers_to_the_keyboard() {
     // Issue #8: Enter saves; ⌘D / Ctrl+D, Alt+D and Alt+N don't save; Escape cancels. While the
@@ -4842,7 +4897,7 @@ fn default_page_context_menu_when_not_in_edit_mode() {
     h.run_steps(2);
 
     // Verify default page context menu items
-    h.get_by_label("Rotate view counterclockwise");
+    h.get_by_label("Rotate pages counterclockwise");
     h.get_by_label("Print");
     h.get_by_label("Select Tool");
     h.get_by_label("Hand Tool");
@@ -4852,7 +4907,7 @@ fn default_page_context_menu_when_not_in_edit_mode() {
     {
         h.get_by_label_contains(item);
     }
-    h.get_by_label("Rotate view clockwise");
+    h.get_by_label("Rotate pages clockwise");
     assert!(h.query_all_by_label("Add comment").next().is_some());
     assert!(h.query_all_by_label("Add text").next().is_some());
     assert!(h.query_all_by_label("Add image").next().is_some());
@@ -8166,7 +8221,7 @@ fn a_right_click_on_a_crop_grip_past_the_page_edge_keeps_crop_mode() {
     let r = h.state().views[0].page_screen_rect(0).expect("on screen");
     crop_secondary_click(&mut h, r.right_bottom() + egui::vec2(4.0, 4.0));
     assert!(h.state().views[0].image_selection.as_ref().is_some_and(|s| s.crop.is_some()), "crop mode stays");
-    for label in ["Flip horizontal", "Rotate view clockwise"] {
+    for label in ["Flip horizontal", "Rotate pages clockwise"] {
         assert!(h.query_all_by_label(label).next().is_none(), "no menu: {label}");
     }
 }
@@ -9066,7 +9121,7 @@ fn test_image_context_menu_precedence() {
     // Assert that the image widget consumes the click and the canvas background menu does not trigger
     h.get_by_label("Rotate Clockwise");
     h.get_by_label("Flip horizontal");
-    assert!(h.query_all_by_label("Rotate view clockwise").next().is_none(), "canvas background menu must not trigger");
+    assert!(h.query_all_by_label("Rotate pages clockwise").next().is_none(), "canvas background menu must not trigger");
     assert!(h.query_all_by_label("Add bookmark").next().is_none(), "canvas background menu must not trigger");
     assert!(h.query_all_by_label("Take a snapshot").next().is_none(), "canvas background menu must not trigger");
 }
@@ -9130,7 +9185,7 @@ fn test_image_context_menu_in_crop_mode_and_when_moved() {
     // In crop mode and when moved, do not open right click window when clicked on the image (#5835)
     assert!(h.query_all_by_label("Rotate Clockwise").next().is_none(), "image context menu must not trigger in crop mode");
     assert!(h.query_all_by_label("Flip horizontal").next().is_none(), "image context menu must not trigger in crop mode");
-    assert!(h.query_all_by_label("Rotate view clockwise").next().is_none(), "canvas background menu must not trigger in crop mode");
+    assert!(h.query_all_by_label("Rotate pages clockwise").next().is_none(), "canvas background menu must not trigger in crop mode");
     assert!(h.query_all_by_label("Add bookmark").next().is_none(), "canvas background menu must not trigger in crop mode");
     assert!(h.query_all_by_label("Take a snapshot").next().is_none(), "canvas background menu must not trigger in crop mode");
     assert!(h.state().views[0].image_selection.as_ref().is_some_and(|s| s.crop.is_some()), "crop mode must remain active after right click on image");
@@ -9147,7 +9202,7 @@ fn test_image_context_menu_in_crop_mode_and_when_moved() {
     h.run_steps(2);
 
     assert!(h.state().views[0].image_selection.is_none(), "clicking outside clears image selection");
-    assert!(h.query_all_by_label("Rotate view clockwise").next().is_some(), "canvas background menu triggers outside image");
+    assert!(h.query_all_by_label("Rotate pages clockwise").next().is_some(), "canvas background menu triggers outside image");
 }
 
 fn crop_secondary_click(h: &mut Harness<'static, PdfCraftApp>, p: egui::Pos2) {
@@ -9164,7 +9219,7 @@ fn assert_crop_context_preserved(h: &Harness<'static, PdfCraftApp>) {
     let selection = h.state().views[0].image_selection.as_ref().expect("crop remains selected");
     assert_eq!(selection.index, 0, "an overlapping image must not steal the crop");
     assert!(selection.crop.is_some(), "crop mode remains active");
-    for label in ["Flip horizontal", "Rotate view clockwise", "Take a snapshot"] {
+    for label in ["Flip horizontal", "Rotate pages clockwise", "Take a snapshot"] {
         assert!(h.query_all_by_label(label).next().is_none(), "unexpected menu: {label}");
     }
     assert!(h.query_by_label("Done").is_some());
@@ -9204,7 +9259,7 @@ fn test_image_context_menu_crop_overlapping_image_and_handle() {
         assert_crop_context_preserved(&h);
         crop_secondary_click(&mut h, image_rect.left_center() - egui::vec2(20.0, 0.0));
         assert!(h.state().views[0].image_selection.is_none());
-        assert!(h.query_by_label("Rotate view clockwise").is_some());
+        assert!(h.query_by_label("Rotate pages clockwise").is_some());
     }
 }
 
@@ -9283,7 +9338,7 @@ fn test_image_context_menu_crop_page_edge_pills() {
             h.state().views[0].viewport_rect(),
             h.state().views[0].image_selection
         );
-        assert!(h.query_by_label("Rotate view clockwise").is_some());
+        assert!(h.query_by_label("Rotate pages clockwise").is_some());
     }
 }
 
@@ -9344,7 +9399,7 @@ fn test_rotated_image_crop_secondary_click_in_outer_bounding_box_clears_selectio
     // Right-clicking at the corner must clear the crop selection and show the canvas context menu (#5900 review)
     crop_secondary_click(&mut h, corner);
     assert!(h.state().views[0].image_selection.is_none(), "clicking in outer bounding box of rotated image clears crop selection");
-    assert!(h.query_by_label("Rotate view clockwise").is_some());
+    assert!(h.query_by_label("Rotate pages clockwise").is_some());
 }
 
 /// A turned picture is its shape, not its bounds: a click in a corner of its bounds, off the

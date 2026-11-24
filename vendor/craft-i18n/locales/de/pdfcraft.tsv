@@ -2658,6 +2658,7 @@ animation effects	On	Ein
 	Rotate Pages	Seiten drehen
 	Rotate pages	Seiten drehen
 	Rotate pages clockwise	Seiten im Uhrzeigersinn drehen
+	Rotate pages clockwise ({key})	Seiten im Uhrzeigersinn drehen ({key})
 	Rotate pages counterclockwise	Seiten gegen den Uhrzeigersinn drehen
 	Rotate pages…	Seiten drehen…
 	Rotate the selected pages clockwise	Ausgewählte Seiten im Uhrzeigersinn drehen

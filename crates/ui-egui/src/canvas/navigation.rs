@@ -349,15 +349,15 @@ impl DocView {
     }
 }
 
-/// ⇧⌘+ / ⇧⌘−: rotate the view clockwise / counterclockwise.
+/// ⇧⌘+ / ⇧⌘−: rotate the pages clockwise / counterclockwise.
 fn rotation_shortcuts(view: &mut DocView, pressed: &impl Fn(egui::KeyboardShortcut) -> bool) {
     use egui::{Key, KeyboardShortcut, Modifiers};
     let shift_cmd = |k| KeyboardShortcut::new(Modifiers::COMMAND | Modifiers::SHIFT, k);
     if pressed(shift_cmd(Key::Plus)) || pressed(shift_cmd(Key::Equals)) {
-        view.rotate_view(true);
+        view.rotate_pages(true);
     }
     if pressed(shift_cmd(Key::Minus)) {
-        view.rotate_view(false);
+        view.rotate_pages(false);
     }
 }
 

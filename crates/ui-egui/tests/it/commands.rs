@@ -544,7 +544,7 @@ fn view_menu_and_tooltips_write_shortcuts_for_the_platform() {
     assert_eq!(h.query_all_by_label_contains("Fit visible").count(), 1, "View lists Fit visible once");
 
     let h = view_menu(OperatingSystem::Mac);
-    h.get_by_label("Rotate view clockwise (⇧⌘+)");
+    h.get_by_label("Rotate pages clockwise (⇧⌘+)");
     assert_eq!(h.query_all_by_label_contains("Ctrl+").count(), 0, "no Ctrl+ on macOS");
 }
 

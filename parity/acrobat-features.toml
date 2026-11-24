@@ -1105,8 +1105,8 @@ milestone = "M3"
 status = "shipped"
 commands = []
 tools = []
-evidence = ["crates/ui-egui/tests/it/ui.rs::selection_works_in_every_view_rotation"]
-notes = ""
+evidence = ["crates/ui-egui/tests/it/ui.rs::selection_works_in_every_view_rotation", "crates/ui-egui/tests/it/editing.rs::rotating_a_file_that_refuses_page_changes_turns_only_the_view"]
+notes = "SMS build: the rail button, ⇧⌘+ / ⇧⌘−, View ▸ Rotate pages and the page menu turn every page (one undoable Rotate Pages edit, saved as /Rotate, #2674; editing.rs::rotating_turns_every_page_and_saving_keeps_it), unlike Acrobat. The view alone turns only when the file refuses page changes or the reader profile leaves out page rotation."
 
 [[feature]]
 id = "view.read-mode"

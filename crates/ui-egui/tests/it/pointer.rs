@@ -2172,7 +2172,7 @@ fn a_right_click_between_the_pages_opens_the_page_menu_not_the_selected_comments
     assert!(!one.contains(gap) && !two.contains(gap), "between the pages: {one:?} {two:?}");
     right_click(&mut h, gap);
     assert_eq!(h.state().views[0].comments.selected, None);
-    assert!(h.query_by_label("Rotate view counterclockwise").is_some(), "the page menu opens");
+    assert!(h.query_by_label("Rotate pages counterclockwise").is_some(), "the page menu opens");
     assert!(h.query_by_label("Reply").is_none(), "not the comment's");
 }
 

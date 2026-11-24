@@ -902,6 +902,10 @@ pub enum ViewAction {
     },
     /// Lock now, on the notice shown after a signature is placed (#2149).
     LockSignatures,
+    /// The rotate button, ⇧⌘+ / ⇧⌘−, View ▸ Rotate pages and the page menu: turn every page.
+    Rotate {
+        clockwise: bool,
+    },
 }
 
 impl ViewAction {
@@ -920,7 +924,8 @@ impl ViewAction {
             Self::PastePages => "page.paste",
             Self::EnhanceCamera | Self::CancelCamera | Self::CameraRotate { .. } | Self::CameraLevel => "ocr.enhance_camera",
             Self::Replace { .. } => "edit.replace",
-            Self::CameraNext(_) | Self::LockSignatures => return None,
+            // Rotate checks the profile itself: where page rotation isn't offered, the view turns.
+            Self::CameraNext(_) | Self::LockSignatures | Self::Rotate { .. } => return None,
         })
     }
 }
@@ -977,7 +982,7 @@ pub(crate) fn default_page_context_menu(ui: &mut egui::Ui, page: usize, at: [f64
     // Top horizontal icon bar: Rotate CCW, Print, Select tool, Hand tool, Marquee Zoom
     ui.horizontal(|ui| {
         ui.spacing_mut().item_spacing.x = 4.0;
-        pick(icon(ui, "rotate-ccw", tl!("Rotate view counterclockwise")), ui, A::RotateCCW);
+        pick(icon(ui, "rotate-ccw", tl!("Rotate pages counterclockwise")), ui, A::RotateCCW);
         ui.add_enabled_ui(perms.can_print, |ui| pick(icon(ui, "printer", tl!("Print")), ui, A::Print));
         pick(icon(ui, "mouse-pointer-2", tl!("Select Tool")), ui, A::SelectTool);
         pick(icon(ui, "hand", tl!("Hand Tool")), ui, A::HandTool);
@@ -1026,7 +1031,7 @@ pub(crate) fn default_page_context_menu(ui: &mut egui::Ui, page: usize, at: [f64
     ui.separator();
 
     pick(ui.button(tl!("Find text or tools")), ui, A::Find);
-    pick(ui.button(tl!("Rotate view clockwise")), ui, A::RotateCW);
+    pick(ui.button(tl!("Rotate pages clockwise")), ui, A::RotateCW);
     pick(ui.button(tl!("Document properties…")), ui, A::DocProperties);
 }
 
@@ -3849,10 +3854,10 @@ fn apply_frame_requests(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui, 
             app.paste_comments(index, None, Some((page, at)));
         }
         Some(PageMenuAction::RotateCCW) => {
-            app.views[index].rotate_view(false);
+            app.views[index].rotate_pages(false);
         }
         Some(PageMenuAction::RotateCW) => {
-            app.views[index].rotate_view(true);
+            app.views[index].rotate_pages(true);
         }
         Some(PageMenuAction::Print) => {
             app.open_print();

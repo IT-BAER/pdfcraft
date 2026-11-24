@@ -614,6 +614,7 @@ impl PdfCraftApp {
                 self.execute(command);
             }
             Some(crate::canvas::ViewAction::Replace { all }) => self.replace_found(i, all),
+            Some(crate::canvas::ViewAction::Rotate { clockwise }) => self.rotate_shown(i, clockwise),
             None => {}
         }
         // That tab comes forward when its value was refused (its editor is open again with the
@@ -664,6 +665,26 @@ impl PdfCraftApp {
             }
         }
         (applied, (!applied || opened).then_some(key))
+    }
+
+    /// Turn every page of tab `i` a quarter as one undoable Rotate Pages edit (SMS build, #2674):
+    /// Save keeps the turn, and the view stays upright, so text added afterwards is upright as
+    /// shown. A file that refuses page changes, or a profile without page rotation, turns the view.
+    fn rotate_shown(&mut self, i: usize, clockwise: bool) {
+        let Some(view) = self.views.get(i) else { return };
+        let pages = self.session.get(view.id).filter(|d| d.allows_assembly() && self.offers("page.rotate")).map_or(0, |d| d.info.pages.len());
+        if pages == 0 {
+            if let Some(v) = self.views.get_mut(i) {
+                v.rotate_view(clockwise);
+            }
+            return;
+        }
+        let degrees = if clockwise { 90 } else { -90 };
+        if self.apply_edit(Edit::RotatePages { pages: (0..pages).collect(), degrees })
+            && let Some(v) = self.views.get_mut(i)
+        {
+            v.goto = Some((v.current, 0.0));
+        }
     }
 
     /// Enhance ▸ Camera image ▸ clean-up slider: undo the enhancement (and the turns made since)

@@ -2721,7 +2721,7 @@ fn long_view_menu_fits_a_short_window() {
     h.run_steps(8);
     crate::support::open_menu(&mut h, "View");
     h.run_steps(2);
-    crate::support::menu_row(&h, "Rotate view").hover();
+    crate::support::menu_row(&h, "Rotate pages").hover();
     h.event(wheel(MouseWheelUnit::Point, -1000.0, TouchPhase::Move));
     h.run_steps(6);
     let after = crate::support::menu_row(&h, "Side panels").rect().bottom();

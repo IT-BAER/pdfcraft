@@ -9,7 +9,13 @@ pub const THUMBNAIL_ZOOM_RANGE: std::ops::RangeInclusive<f32> = 0.5..=1.5;
 pub(super) const GRID_ZOOM_STEP: f32 = 1.25;
 
 impl DocView {
-    /// Rotate the view 90° clockwise or counter-clockwise (View ▸ Rotate View, ⇧⌘+ / ⇧⌘−).
+    /// Ask the app to turn every page a quarter (the rotate button, ⇧⌘+ / ⇧⌘−, View ▸ Rotate
+    /// pages, the page menu), so Save keeps it (#2674); see `PdfCraftApp::rotate_shown`.
+    pub fn rotate_pages(&mut self, clockwise: bool) {
+        self.pending_action = Some(super::ViewAction::Rotate { clockwise });
+    }
+
+    /// Rotate the view 90° clockwise or counter-clockwise, display only.
     pub fn rotate_view(&mut self, clockwise: bool) {
         self.rotation = (self.rotation + if clockwise { 90 } else { 270 }) % 360;
         self.goto = Some((self.current, 0.0));

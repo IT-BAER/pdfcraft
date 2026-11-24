@@ -1636,7 +1636,7 @@ fn dialog_shortcuts(ui: &mut egui::Ui) -> bool {
         (key(PAGE_LEVEL), tl!("Zoom to page level").to_string()),
         (key(FIT_WIDTH), tl!("Fit to width").to_string()),
         (pair(ZOOM_IN, ZOOM_OUT), scroll),
-        (pair(ROTATE_CW, ROTATE_CCW), tl!("Rotate view").to_string()),
+        (pair(ROTATE_CW, ROTATE_CCW), tl!("Rotate pages").to_string()),
         (
             format!("{} / {}, {}", crate::i18n::key_name("Home"), crate::i18n::key_name("End"), pair(FIRST_PAGE, LAST_PAGE)),
             tl!("First / last page").to_string(),

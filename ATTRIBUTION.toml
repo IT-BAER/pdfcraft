@@ -3192,7 +3192,7 @@ licence = "MIT OR Apache-2.0"
 licence_file = "vendor/craft-i18n/LICENSE-MIT"
 kind = "translation"
 usage = "Interface text, embedded by crates/ui-egui/build.rs through CRAFT_I18N_DIR (.cargo/config.toml)"
-sha256 = "b413d948ee3719ee9a54d94dbd1f24b36afd713166ece1030c2fbb8d37c227a1"
+sha256 = "2f511fbf9b2d2952d588640513d04d738d746b5db6678614e862c757d70eeaf7"
 
 [[asset]]
 path = "vendor/craft-i18n/locales/es/common.tsv"

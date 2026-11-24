@@ -60,8 +60,8 @@ const EXTRA: &[(&str, &str, Option<Shortcut>)] = &[
     (FIT_HEIGHT, "Fit to height", None),
     (ZOOM_IN, "Zoom in", Some(crate::commands::ZOOM_IN)),
     (ZOOM_OUT, "Zoom out", Some(crate::commands::ZOOM_OUT)),
-    (ROTATE_CW, "Rotate view clockwise", Some(crate::commands::ROTATE_CW)),
-    (ROTATE_CCW, "Rotate view counterclockwise", Some(crate::commands::ROTATE_CCW)),
+    (ROTATE_CW, "Rotate pages clockwise", Some(crate::commands::ROTATE_CW)),
+    (ROTATE_CCW, "Rotate pages counterclockwise", Some(crate::commands::ROTATE_CCW)),
 ];
 
 /// View ▸ Side panels: the panel, its id in [`PANEL`] commands and its English label.
@@ -94,7 +94,7 @@ const TITLES: &[&str] = &[
     "Export",
     "Protect",
     "Zoom",
-    "Rotate view",
+    "Rotate pages",
     "Page navigation",
     "Page display",
     "Side panels",
@@ -347,7 +347,7 @@ impl PdfCraftApp {
         let help = list(HELP, &mut used);
         let mut view = vec![
             Node::submenu(tl!("Zoom"), list(ZOOM, &mut used)),
-            Node::submenu(tl!("Rotate view"), list(&[ROTATE_CW, ROTATE_CCW], &mut used)),
+            Node::submenu(tl!("Rotate pages"), list(&[ROTATE_CW, ROTATE_CCW], &mut used)),
             Node::submenu(tl!("Page navigation"), list(NAVIGATION, &mut used)),
             Node::submenu(tl!("Page display"), list(DISPLAY, &mut used)),
             Node::Separator,
@@ -585,8 +585,8 @@ impl PdfCraftApp {
                     }
                     ZOOM_IN => v.zoom_step(true),
                     ZOOM_OUT => v.zoom_step(false),
-                    ROTATE_CW => v.rotate_view(true),
-                    _ => v.rotate_view(false),
+                    ROTATE_CW => v.rotate_pages(true),
+                    _ => v.rotate_pages(false),
                 }
             }
             id => {
