@@ -129,17 +129,17 @@ Implemented: `initialize` (protocol 2025-06-18, 2025-03-26, 2024-11-05), `ping`,
 
 ### From an installed release
 
-The release packages ship `pdfcraft-cli` alongside the desktop app, so no build is needed:
+The upstream release packages ship `pdfcraft-cli` alongside the desktop app. The SMS build's MSI installs only `pdfcraft.exe`, so on Windows build the CLI with `cargo build --release -p pdfcraft-cli`:
 
 | Install | CLI |
 |---|---|
-| Windows (MSI) | `%LOCALAPPDATA%\Programs\ArtCraft\PdfCraft\pdfcraft-cli.exe` by default (`C:\Program Files\ArtCraft\PdfCraft\pdfcraft-cli.exe` for an all-users install, under `Program Files (x86)` instead for the 32-bit build, or wherever you installed it otherwise), not on `PATH` |
+| Windows (SMS MSI) | not installed; `target\release\pdfcraft-cli.exe` after the build above |
 | Linux (deb, rpm) | `/usr/bin/pdfcraft-cli` |
 | macOS | the separate `pdfcraft-cli-<version>-macos-<arch>.zip` release asset (the `.app` holds only the desktop app) |
 
 ```sh
-# Windows (PowerShell), default install folder
-claude mcp add pdfcraft -- "$env:LOCALAPPDATA\Programs\ArtCraft\PdfCraft\pdfcraft-cli.exe" mcp --root <dir>
+# Windows (PowerShell), from the checkout after the build above
+claude mcp add pdfcraft -- "$PWD\target\release\pdfcraft-cli.exe" mcp --root <dir>
 # Linux, or macOS with the CLI unzipped onto PATH
 claude mcp add pdfcraft -- pdfcraft-cli mcp --root <dir>
 ```
