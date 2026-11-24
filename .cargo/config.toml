@@ -13,3 +13,5 @@ rustflags = ["-C", "target-feature=+simd128"]
 # which it can only do once `main` runs.
 [env]
 AWS_LC_SYS_CFLAGS = "-DBORINGSSL_NO_STATIC_INITIALIZER"
+# SMS build: the interface translations are vendored (vendor/craft-i18n/README.md).
+CRAFT_I18N_DIR = { value = "vendor/craft-i18n", relative = true }
