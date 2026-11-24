@@ -1,5 +1,9 @@
 use super::{Arc, Color32, Edit, LineEditor, PageXform, Pos2, TextTarget};
 
+/// Longest device-pixel side of the raster that stands in for a page's tiles while a paragraph is
+/// open: sharp on a Retina display up to about 2.5x on a Letter or A4 page.
+pub(super) const BACKGROUND_SIDE: f32 = 4096.0;
+
 /// A cached, read-only page background. The source glyphs are removed before rasterization;
 /// colour, pictures and unselected text beneath the editor remain visible.
 #[derive(Default)]
@@ -102,11 +106,10 @@ impl TextBackground {
         let (Some((_, page, _)), Some(renderer)) = (self.key, self.renderer.as_ref()) else { return };
         let Some(p) = doc.info.pages.get(page) else { return };
         // One raster stands in for the page's tiles while a paragraph is open, so everything
-        // around the editor is drawn from it: at the tiling threshold it stays sharp on a Retina
-        // display up to about 2.5x on a Letter or A4 page, where the backdrop side (2048) went
-        // soft past 1.2x.
+        // around the editor is drawn from it, at BACKGROUND_SIDE: the backdrop side (2048) went
+        // soft past 1.2x on a Retina display.
         let max_side = ctx.input(|i| i.max_texture_side) as f32;
-        let scale = scale.min(crate::canvas::TILE_THRESHOLD.min(max_side) / p.width.max(p.height).max(1.0));
+        let scale = scale.min(BACKGROUND_SIDE.min(max_side) / p.width.max(p.height).max(1.0));
         let tag = (scale * 1000.0) as u64;
         if self.tag != Some(tag) {
             renderer.set_queue(vec![pdfcraft_render::RenderRequest { page, scale, tag, ..Default::default() }]);

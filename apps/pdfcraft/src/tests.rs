@@ -293,8 +293,9 @@ fn gpu_setup_avoids_vulkan_and_stretched_resizes_on_windows_and_prefers_low_powe
     }
     if cfg!(target_os = "windows") && std::env::var_os("WGPU_BACKEND").is_none() {
         let backends = setup.instance_descriptor.backends;
-        assert!(backends.contains(eframe::wgpu::Backends::DX12), "{backends:?}");
-        assert!(!backends.contains(eframe::wgpu::Backends::VULKAN), "issue #37: {backends:?}");
+        // Without Vulkan (issue #37) or wgpu's own OpenGL, whose adapter probe slows every start:
+        // where Direct3D 12 can't start, the app restarts on the OpenGL renderer (glow).
+        assert_eq!(backends, eframe::wgpu::Backends::DX12);
     }
     use eframe::wgpu::Dx12SwapchainKind::{DxgiFromHwnd, DxgiFromVisual};
     assert_eq!(super::dx12_presentation(None), DxgiFromVisual);

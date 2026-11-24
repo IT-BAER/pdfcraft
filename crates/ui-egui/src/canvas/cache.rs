@@ -21,7 +21,14 @@ pub(super) const GRAYSCALE_TAG: u64 = 1 << 59;
 pub(super) const STALE_TAG: u64 = u64::MAX;
 
 /// Pages whose raster would exceed this many device pixels on a side are drawn in tiles.
-pub(crate) const TILE_THRESHOLD: f32 = 4096.0;
+/// An A1 drawing at 100 % (3,178-3,973 pixels) is tiled: whole, a 200,000-line sheet took 1.2 s.
+const TILE_THRESHOLD: f32 = 3072.0;
+
+/// Whether a page whose longer side is `side_pt` points is drawn in tiles at `scale` device pixels
+/// per point, on a GPU whose textures are at most `max_side` pixels on a side.
+pub(super) fn drawn_in_tiles(side_pt: f32, scale: f32, max_side: f32) -> bool {
+    side_pt * scale > TILE_THRESHOLD.min(max_side)
+}
 
 /// Base device-pixel side of a page tile. The actual side grows with the zoom
 /// ([`tile_side`]), so a zoomed viewport is covered by a few tiles instead of many.

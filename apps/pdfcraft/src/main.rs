@@ -716,10 +716,10 @@ fn stage_control_file(
 ///   says which one it is ([`compositor_gpu::compositor_gpu`]), and frames from another GPU may
 ///   never reach the screen, even from the GPU behind the built-in panel when the compositor runs
 ///   on the discrete one.
-/// - On Windows, use Direct3D 12, falling back to OpenGL, and never load Vulkan drivers unless
-///   `WGPU_BACKEND` asks for them. Creating a Vulkan instance loads every installed Vulkan driver
-///   into the process, and a faulty one (an Intel driver in issue #37) crashed PdfCraft before
-///   its window appeared. D3D12 is the native, best-supported backend there.
+/// - On Windows, use only Direct3D 12 unless `WGPU_BACKEND` asks for more. Creating a Vulkan
+///   instance loads every installed Vulkan driver into the process, and a faulty one (an Intel
+///   driver in issue #37) crashed PdfCraft before its window appeared. wgpu's own OpenGL backend
+///   probes an adapter on every start; where D3D12 can't start, `main` retries with glow instead.
 /// - On Windows, Direct3D 12 presents through a DirectComposition visual rather than a swap chain
 ///   on the window itself, unless `WGPU_DX12_PRESENTATION_SYSTEM` says otherwise. While the window
 ///   is being resized, Windows stretched the window's swap chain, still at the old size, to the
@@ -770,7 +770,7 @@ fn configure_gpu(native: &mut eframe::NativeOptions) {
         }
     }
     if cfg!(target_os = "windows") && std::env::var_os("WGPU_BACKEND").is_none() {
-        setup.instance_descriptor.backends = eframe::wgpu::Backends::DX12 | eframe::wgpu::Backends::GL;
+        setup.instance_descriptor.backends = eframe::wgpu::Backends::DX12;
     }
     if cfg!(target_os = "windows") {
         setup.instance_descriptor.backend_options.dx12.presentation_system = dx12_presentation(eframe::wgpu::Dx12SwapchainKind::from_env());

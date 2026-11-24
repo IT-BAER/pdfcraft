@@ -17,6 +17,8 @@ pdfcraft-content = { workspace = true }
 pdfcraft-model = { workspace = true }
 pdfcraft-annot = { workspace = true }
 thiserror.workspace = true
+# Print tiles at zlib level 1 (`tiles::flate_fast`); craft-pdf's `Stream::flate` writes level 6.
+flate2.workspace = true
 # Bicubic resampling; zero codec features.
 image = { version = "0.25", default-features = false }
 # JPEG decoding and encoding via craft-libs.

@@ -11,6 +11,17 @@ fn zoom_anchor_scroll_stays_within_the_content() {
     assert_eq!(anchored_scroll(pos2(400.0, 400.0), Vec2::ZERO, vec2(500.0, 500.0), viewport), vec2(0.0, 0.0));
 }
 
+/// A large drawing at 100 % is drawn in tiles, so the part in the window is sharp first: an A1
+/// sheet of 200,000 lines took 1.2 s whole and 0.2-0.4 s a tile. An A4 page at 200 % stays whole.
+#[test]
+fn an_a1_drawing_at_100_percent_is_drawn_in_tiles() {
+    for ppp in [1.0, 1.25] {
+        assert!(drawn_in_tiles(2384.0, PT * ppp, 16384.0), "the A1 page at 100 % and {ppp}x is rendered whole");
+    }
+    assert!(!drawn_in_tiles(842.0, PT * 1.25 * 2.0, 16384.0), "an A4 page at 200 % and 1.25x is tiled");
+    assert!(drawn_in_tiles(842.0, PT * 2.0, 2048.0), "a page past the GPU's texture limit is tiled");
+}
+
 #[test]
 fn page_size_hint_zone_is_the_bottom_left_quadrant() {
     let area = Rect::from_min_max(pos2(100.0, 50.0), pos2(500.0, 450.0));

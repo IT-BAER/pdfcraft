@@ -51,13 +51,13 @@ use area::{drawing_edge_pointer, glide_interrupted, page_scroll, presentation_cl
 use bars::in_size_hint_zone;
 use bars::{Notice, notices, page_size_hint, quick_bar};
 pub use cache::RasterMemory;
-pub(crate) use cache::{BASE_SIDE, TILE_THRESHOLD, texture_image, thumbnail_rows};
+pub(crate) use cache::{BASE_SIDE, texture_image, thumbnail_rows};
 #[cfg(test)]
 use cache::{
     GRAYSCALE_TAG, GRID_TAG, MAX_CACHED_TEXT_PAGES, MAX_THUMB_DEMAND, PAGE_BYTES, THUMB_BYTES, THUMB_H, THUMB_TAG, THUMB_W, TILE, grayscale,
     rgba_bytes,
 };
-use cache::{OLD_TILES, PageTex, STALE_TAG, TEXT_TAG, TILE_BYTES, scale_tag, tag_scale, texture_bytes, tile_side};
+use cache::{OLD_TILES, PageTex, STALE_TAG, TEXT_TAG, TILE_BYTES, drawn_in_tiles, scale_tag, tag_scale, texture_bytes, tile_side};
 pub use find::Find;
 use find::find_bar;
 pub(crate) use navigation::shortcuts;
@@ -1645,7 +1645,7 @@ fn paint_page_surface(ui: &mut egui::Ui, view: &mut DocView, frame: &mut PageFra
         // A GPU may take smaller textures than these (OpenGL drivers report as little as
         // 2048 pixels, and uploading a bigger one aborts), so both stay within its limit.
         let max_side = ui.ctx().input(|inp| inp.max_texture_side) as f32;
-        let tiled = pw_pt.max(ph_pt) * scale > TILE_THRESHOLD.min(max_side);
+        let tiled = drawn_in_tiles(pw_pt.max(ph_pt), scale, max_side);
         // Whole-page raster: sharp when small, a low-res backdrop when tiled.
         let (want_scale, want_tag) = if tiled {
             let bs = BASE_SIDE.min(max_side) / pw_pt.max(ph_pt);
@@ -2514,7 +2514,7 @@ fn row_bounds(view: &DocView, i: usize) -> (usize, usize) {
 /// is, as `paint_page_surface` demands it under tiles.
 fn prefetch_demand(view: &DocView, p: &pdfcraft_render::PageInfo, i: usize, scale: f32, tag: u64, max_side: f32) -> (usize, f32, u64, Option<Tile>) {
     let side = p.width.max(p.height).max(1.0);
-    if side * scale <= TILE_THRESHOLD.min(max_side) {
+    if !drawn_in_tiles(side, scale, max_side) {
         return (i, scale, tag, None);
     }
     let bs = BASE_SIDE.min(max_side) / side;

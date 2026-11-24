@@ -1914,8 +1914,8 @@ C", &picked
     #[test]
     fn the_editing_background_stays_sharp_on_a_zoomed_page() {
         // While a paragraph is open, the page around it is drawn from this one raster: it is
-        // asked for at the tiling threshold, not the 2048-pixel backdrop side, which went soft
-        // beyond about 1.2x on a Retina display.
+        // asked for at its own side, not the 2048-pixel backdrop side, which went soft beyond
+        // about 1.2x on a Retina display.
         let (app, ed) = preview_app();
         let doc = app.session.get(app.views[0].id).unwrap();
         let page = &doc.info.pages[0];
@@ -1923,7 +1923,7 @@ C", &picked
         ctx.begin_pass(egui::RawInput { max_texture_side: Some(16384), ..Default::default() });
         let mut background = TextBackground::default();
         background.prepare(&ctx, doc, Some(&ed), None, 8.0);
-        let expected = 8.0f32.min(crate::canvas::TILE_THRESHOLD / page.width.max(page.height));
+        let expected = 8.0f32.min(super::background::BACKGROUND_SIDE / page.width.max(page.height));
         assert!(expected > crate::canvas::BASE_SIDE / page.width.max(page.height), "the test page needs the larger side");
         assert_eq!(background.tag, Some((expected * 1000.0) as u64));
         // A GPU that can't hold such a texture caps it.

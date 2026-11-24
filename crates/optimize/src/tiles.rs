@@ -47,7 +47,8 @@ pub struct TileReport {
 /// the same object number that draws it as tiles of at most [`TILE`] pixels a side, overlapping
 /// by [`OVERLAP`] unless it has a soft mask. Whatever draws the image (pages, forms, patterns, appearances) then draws the
 /// tiles, unchanged. The samples are copied as they are, colour space, decode array and
-/// interpolation included; a JPEG's are decoded and stored with Flate. A soft mask or stencil
+/// interpolation included; a JPEG's are decoded. Tiles are stored with Flate at its fastest level,
+/// because this runs between the user's Print and the printer. A soft mask or stencil
 /// mask of the image's size is cut into the same tiles. An image used as another's mask goes with
 /// that image, and is otherwise left whole, as are the images [`TileReport::left_whole`] lists.
 pub fn tile_large_images(doc: &mut Document) -> TileReport {
@@ -224,23 +225,69 @@ fn tiles(doc: &Document, image: &Stream, budget: &mut ImageBudget) -> Option<Til
         None | Some(Object::Null) => None,
         Some(_) => return None,
     };
-    let mut tiles = Vec::new();
     // Overlapping tiles blend a see-through pixel twice ([`OVERLAP`]).
     let overlap = if soft { 0 } else { OVERLAP };
+    let mut places = Vec::new();
     for y in spans(dims.1, overlap) {
         for x in spans(dims.0, overlap) {
-            let tile = |s: &Stream, samples: &StoredSamples| -> Option<Stream> {
-                let dict = tile_dict(doc, &s.dict, (x.1.saturating_sub(x.0), y.1.saturating_sub(y.0)), samples.bits_per_component);
-                Some(Stream::flate(dict, &samples.cut(dims.0, x, y)?))
+            let dict = |s: &Stream, samples: &StoredSamples| {
+                tile_dict(doc, &s.dict, (x.1.saturating_sub(x.0), y.1.saturating_sub(y.0)), samples.bits_per_component)
             };
-            let mask_tile = match &mask {
-                Some((m, samples)) => Some(tile(m, samples)?),
-                None => None,
-            };
-            tiles.push(Tile { x, y, image: tile(image, &samples)?, mask: mask_tile });
+            places.push((x, y, dict(image, &samples), mask.as_ref().map(|(m, samples)| dict(m, samples))));
         }
     }
+    let mask_samples = mask.as_ref().map(|(_, samples)| samples);
+    // Compressing the samples is most of the work: the tiles' at once.
+    let tiles = in_parallel(&places, |(x, y, image_dict, mask_dict)| {
+        let tile = |dict: &Dict, samples: &StoredSamples| flate_fast(dict.clone(), &samples.cut(dims.0, *x, *y)?);
+        let mask = match (mask_dict, mask_samples) {
+            (Some(dict), Some(samples)) => Some(tile(dict, samples)?),
+            _ => None,
+        };
+        Some(Tile { x: *x, y: *y, image: tile(image_dict, &samples)?, mask })
+    })?
+    .into_iter()
+    .collect::<Option<Vec<_>>>()?;
     Some(Tiles { size: dims, tiles, mask_key })
+}
+
+/// `data` in a Flate stream with dictionary `dict`, at zlib level 1: about seven times faster than
+/// level 6 on scanned pictures, a third larger.
+fn flate_fast(mut dict: Dict, data: &[u8]) -> Option<Stream> {
+    use std::io::Write as _;
+    let mut e = flate2::write::ZlibEncoder::new(Vec::with_capacity(data.len() / 2 + 64), flate2::Compression::fast());
+    e.write_all(data).ok()?;
+    dict.set("Filter", Object::name("FlateDecode"));
+    dict.remove(b"DecodeParms");
+    Some(Stream::from_raw(dict, e.finish().ok()?))
+}
+
+/// Threads [`in_parallel`] uses at most: as many as the tiles of an A4 scan, and a bound on the
+/// tiles' samples held at once.
+const THREADS: usize = 4;
+
+/// `f` of each of `items`, in order, on up to [`THREADS`] threads. Where no thread can start
+/// (WebAssembly), on this one; `None` if a thread panicked.
+fn in_parallel<T: Sync, R: Send>(items: &[T], f: impl Fn(&T) -> R + Sync) -> Option<Vec<R>> {
+    let threads = std::thread::available_parallelism().map_or(1, usize::from).min(THREADS).min(items.len());
+    if threads <= 1 {
+        return Some(items.iter().map(&f).collect());
+    }
+    let f = &f;
+    std::thread::scope(|s| {
+        let parts: Vec<_> = items
+            .chunks(items.len().div_ceil(threads))
+            .map(|part| (part, std::thread::Builder::new().spawn_scoped(s, move || part.iter().map(f).collect::<Vec<_>>())))
+            .collect();
+        let mut out = Vec::with_capacity(items.len());
+        for (part, handle) in parts {
+            match handle {
+                Ok(handle) => out.extend(handle.join().ok()?),
+                Err(_) => out.extend(part.iter().map(f)),
+            }
+        }
+        Some(out)
+    })
 }
 
 /// The dictionary of a tile `w` × `h` of the image whose dictionary is `image`: what paints its
@@ -344,6 +391,30 @@ mod tests {
         assert_eq!(rgb16.cut(2002, (2000, 2002), (0, 1)).unwrap(), rgb16.data[12_000..12_012]);
         // Rows past the data are no tile, not a panic.
         assert_eq!(samples.cut(4004, (0, 8), (1, 3)), None);
+    }
+
+    #[test]
+    fn tiles_are_stored_with_flate_at_level_1() {
+        use std::io::Read as _;
+        let data: Vec<u8> = (0..50_000u32).map(|i| (i * i % 251) as u8).collect();
+        let mut dict = Dict::new();
+        dict.set("DecodeParms", Object::Int(1));
+        let s = flate_fast(dict, &data).unwrap();
+        assert_eq!(s.dict.name(b"Filter"), Some(b"FlateDecode".as_slice()));
+        assert!(!s.dict.contains(b"DecodeParms"));
+        // FLEVEL 0 (fastest) in the header, as readers expect of level 1.
+        assert_eq!(s.raw.get(..2), Some([0x78, 0x01].as_slice()));
+        let mut back = Vec::new();
+        flate2::read::ZlibDecoder::new(&s.raw[..]).read_to_end(&mut back).unwrap();
+        assert_eq!(back, data);
+    }
+
+    #[test]
+    fn work_done_in_parallel_comes_back_in_order() {
+        let items: Vec<u32> = (0..37).collect();
+        assert_eq!(in_parallel(&items, |i| i * 2), Some(items.iter().map(|i| i * 2).collect()));
+        assert_eq!(in_parallel(&[5u32], |i| i + 1), Some(vec![6]));
+        assert_eq!(in_parallel(&[] as &[u32], |i| *i), Some(vec![]));
     }
 
     #[test]
