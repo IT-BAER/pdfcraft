@@ -2371,6 +2371,8 @@ fn delete_with_a_menu_open_leaves_the_selected_picture() {
 #[test]
 fn a_hotbar_window_hidden_by_full_screen_holds_no_keys() {
     let mut h = open(bottom_line_pages_pdf(), "100", false);
+    h.state_mut().set_option("hotbar-enabled", "on").unwrap();
+    h.run_steps(2);
     h.get_by_label("Hotbar settings").click();
     h.run_steps(3);
     assert!(h.state_mut().execute("view.full_screen"));
@@ -2388,6 +2390,8 @@ fn a_hotbar_window_hidden_by_full_screen_holds_no_keys() {
 #[test]
 fn full_screen_from_a_native_menu_with_the_hotbar_window_open_leaves_the_keys_to_the_page() {
     let mut h = open(bottom_line_pages_pdf(), "100", false);
+    h.state_mut().set_option("hotbar-enabled", "on").unwrap();
+    h.run_steps(2);
     h.get_by_label("Hotbar settings").click();
     h.run_steps(3);
     assert!(h.query_by_label("Close menu").is_some(), "the Hotbar tools window is open");

@@ -10,6 +10,9 @@ use crate::{PdfCraftApp, QuickTool, comments, icons, theme, theme::Tokens};
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default)]
 pub(crate) struct Hotbar {
+    /// SMS build: off (the default, also for settings saved without it) hides the drag grip, the
+    /// custom tools and the settings gear; the quick actions always show.
+    pub enabled: bool,
     pub tools: Vec<String>,
     /// Position as a fraction of the available travel, so resizing keeps the bar visible.
     pub position: [f32; 2],
@@ -68,6 +71,7 @@ impl Default for Hotbar {
     /// Create a default vertical floating hotbar positioned in the document margin.
     fn default() -> Self {
         Self {
+            enabled: false,
             tools: Vec::new(),
             position: [0.0, 0.0],
             vertical: true,
@@ -638,8 +642,9 @@ pub(crate) fn show(app: &mut PdfCraftApp, area: Rect, page_left: Option<f32>, ui
         bounds.min + vec2(travel.x * bar.position[0], travel.y * bar.position[1])
     };
     let mut run = None;
+    let extras = bar.enabled;
     let was_picker_open = bar.picker_open;
-    let mut picker_open = bar.picker_open;
+    let mut picker_open = bar.picker_open && extras;
     let mut settings_clicked = false;
     let shown = egui::Area::new(id).order(egui::Order::Middle).fixed_pos(pos).constrain_to(bounds).show(&ctx, |ui| {
         let frame = if full_side {
@@ -666,14 +671,14 @@ pub(crate) fn show(app: &mut PdfCraftApp, area: Rect, page_left: Option<f32>, ui
             if full_side {
                 if bar.vertical {
                     ui.with_layout(egui::Layout::bottom_up(egui::Align::Center), |ui| {
-                        settings_clicked |= settings_button(ui, cell, &mut picker_open);
+                        settings_clicked |= extras && settings_button(ui, cell, &mut picker_open);
                         ui.add_space(4.0);
                         let remaining = ui.available_height().max(cell);
                         egui::ScrollArea::vertical().max_height(remaining).show(ui, |ui| {
                             ui.with_layout(egui::Layout::top_down(egui::Align::Center), |ui| {
                                 core_tool_buttons(ui, app, cell, popup_align, &t);
                                 active_tool_controls(ui, app, &t, true);
-                                if !bar.tools.is_empty() {
+                                if extras && !bar.tools.is_empty() {
                                     ui.separator();
                                     tool_buttons(ui, app, &bar.tools, cell, &mut run, &mut remove);
                                 }
@@ -682,14 +687,14 @@ pub(crate) fn show(app: &mut PdfCraftApp, area: Rect, page_left: Option<f32>, ui
                     });
                 } else {
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        settings_clicked |= settings_button(ui, cell, &mut picker_open);
+                        settings_clicked |= extras && settings_button(ui, cell, &mut picker_open);
                         ui.add_space(4.0);
                         let remaining = ui.available_width().max(cell);
                         egui::ScrollArea::horizontal().max_height(cell).max_width(remaining).show(ui, |ui| {
                             ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
                                 core_tool_buttons(ui, app, cell, popup_align, &t);
                                 active_tool_controls(ui, app, &t, false);
-                                if !bar.tools.is_empty() {
+                                if extras && !bar.tools.is_empty() {
                                     ui.separator();
                                     tool_buttons(ui, app, &bar.tools, cell, &mut run, &mut remove);
                                 }
@@ -702,27 +707,29 @@ pub(crate) fn show(app: &mut PdfCraftApp, area: Rect, page_left: Option<f32>, ui
                     if bar.vertical { egui::Layout::top_down(egui::Align::Center) } else { egui::Layout::left_to_right(egui::Align::Center) };
                 ui.with_layout(layout, |ui| {
                     let grip_size = if bar.vertical { vec2(cell, 18.0) } else { vec2(18.0, cell) };
-                    let (grip_rect, grip) = ui.allocate_exact_size(grip_size, Sense::drag());
-                    for x in [-3.0, 3.0] {
-                        for y in [-6.0, 0.0, 6.0] {
-                            let offset = if bar.vertical { vec2(y, x) } else { vec2(x, y) };
-                            ui.painter().circle_filled(grip_rect.center() + offset, 1.5, t.text_faint);
+                    if extras {
+                        let (grip_rect, grip) = ui.allocate_exact_size(grip_size, Sense::drag());
+                        for x in [-3.0, 3.0] {
+                            for y in [-6.0, 0.0, 6.0] {
+                                let offset = if bar.vertical { vec2(y, x) } else { vec2(x, y) };
+                                ui.painter().circle_filled(grip_rect.center() + offset, 1.5, t.text_faint);
+                            }
                         }
-                    }
-                    let drag_label = tl!("Drag hotbar");
-                    let grip = grip.on_hover_text(drag_label).on_hover_cursor(egui::CursorIcon::Grab);
-                    grip.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, drag_label));
-                    if grip.dragged() && bar.dock.is_none() {
-                        let delta = grip.drag_delta();
-                        if !bar.placed {
-                            let cur_x = (pos.x - bounds.min.x).max(0.0);
-                            let cur_y = (pos.y - bounds.min.y).max(0.0);
-                            bar.position[0] = (cur_x / travel.x.max(1.0)).clamp(0.0, 1.0);
-                            bar.position[1] = (cur_y / travel.y.max(1.0)).clamp(0.0, 1.0);
+                        let drag_label = tl!("Drag hotbar");
+                        let grip = grip.on_hover_text(drag_label).on_hover_cursor(egui::CursorIcon::Grab);
+                        grip.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, drag_label));
+                        if grip.dragged() && bar.dock.is_none() {
+                            let delta = grip.drag_delta();
+                            if !bar.placed {
+                                let cur_x = (pos.x - bounds.min.x).max(0.0);
+                                let cur_y = (pos.y - bounds.min.y).max(0.0);
+                                bar.position[0] = (cur_x / travel.x.max(1.0)).clamp(0.0, 1.0);
+                                bar.position[1] = (cur_y / travel.y.max(1.0)).clamp(0.0, 1.0);
+                            }
+                            bar.position[0] = (bar.position[0] + delta.x / travel.x.max(1.0)).clamp(0.0, 1.0);
+                            bar.position[1] = (bar.position[1] + delta.y / travel.y.max(1.0)).clamp(0.0, 1.0);
+                            bar.placed = true;
                         }
-                        bar.position[0] = (bar.position[0] + delta.x / travel.x.max(1.0)).clamp(0.0, 1.0);
-                        bar.position[1] = (bar.position[1] + delta.y / travel.y.max(1.0)).clamp(0.0, 1.0);
-                        bar.placed = true;
                     }
                     if bar.vertical {
                         let fixed_overhead = grip_size.y + cell + 24.0;
@@ -731,17 +738,17 @@ pub(crate) fn show(app: &mut PdfCraftApp, area: Rect, page_left: Option<f32>, ui
                             ui.with_layout(layout, |ui| {
                                 core_tool_buttons(ui, app, cell, popup_align, &t);
                                 active_tool_controls(ui, app, &t, true);
-                                if !bar.tools.is_empty() {
+                                if extras && !bar.tools.is_empty() {
                                     ui.separator();
                                     tool_buttons(ui, app, &bar.tools, cell, &mut run, &mut remove);
                                 }
                             });
                         });
-                        settings_clicked |= settings_button(ui, cell, &mut picker_open);
+                        settings_clicked |= extras && settings_button(ui, cell, &mut picker_open);
                     } else {
                         core_tool_buttons(ui, app, cell, popup_align, &t);
                         active_tool_controls(ui, app, &t, false);
-                        if !bar.tools.is_empty() {
+                        if extras && !bar.tools.is_empty() {
                             ui.separator();
                             let scroll_max = (bounds.width() - cell - 50.0).max(cell);
                             egui::ScrollArea::horizontal().max_height(cell).max_width(scroll_max).show(ui, |ui| {
@@ -750,7 +757,7 @@ pub(crate) fn show(app: &mut PdfCraftApp, area: Rect, page_left: Option<f32>, ui
                                 });
                             });
                         }
-                        settings_clicked |= settings_button(ui, cell, &mut picker_open);
+                        settings_clicked |= extras && settings_button(ui, cell, &mut picker_open);
                     }
                 });
             }
@@ -964,6 +971,7 @@ mod tests {
     macro_rules! hotbar_harness {
         ($side:expr, $vertical:expr, $full_side:expr) => {{
             let mut app = PdfCraftApp::new();
+            app.hotbar.enabled = true;
             app.hotbar.place($side).unwrap();
             app.hotbar.vertical = $vertical;
             app.hotbar.full_side = $full_side;

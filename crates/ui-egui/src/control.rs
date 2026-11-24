@@ -39,6 +39,7 @@
 //!   `theme=light|dark|system` changes the saved theme preference; `ui.state.theme_preference`
 //!   reports the choice and `ui.state.theme` reports the resolved light/dark colours.
 //!   `comment-tool-pinned=true|false` remembers the annotation quick bar's pin across restarts;
+//!   `hotbar-enabled=on|off` shows or hides the hotbar's grip, custom tools and settings gear;
 //!   `hotbar-tools` accepts comma-separated command IDs (empty clears the bar), and
 //!   `hotbar-side=float|left|right|top|bottom` floats or docks the customizable hotbar;
 //!   `hotbar-full-side=true|false` extends a docked bar along the entire side.

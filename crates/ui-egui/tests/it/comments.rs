@@ -4628,9 +4628,40 @@ fn freehand_highlighter_draws_translucent_yellow_ink() {
     assert_eq!(h.state().views[0].comments.selected, None);
 }
 
+/// SMS build: the bar always shows the quick actions; its grip, custom tools and settings gear
+/// show only once Preferences turns the hotbar on, also for settings saved before the switch.
+#[test]
+fn hotbar_extras_are_hidden_by_default_and_shown_when_enabled() {
+    let mut h = harness(|app| app.set_option("hotbar-tools", "comment.freehand_highlight").unwrap());
+    h.run_steps(3);
+    let custom = |h: &Harness<'static, PdfCraftApp>| h.query_all_by_role_and_label(Role::Button, "Freehand-Highlight").count();
+    assert!(h.query_by_label("Select (V)").is_some() && h.query_by_label("Hand (H)").is_some(), "the quick actions show");
+    assert!(h.query_by_label("Drag hotbar").is_none(), "the grip shows by default");
+    assert!(h.query_by_label("Hotbar settings").is_none(), "the settings gear shows by default");
+    let hidden = custom(&h);
+    let saved: serde_json::Value = serde_json::from_str(&h.state().persist()).unwrap();
+    assert_eq!(saved["hotbar"]["enabled"], false);
+
+    h.state_mut().set_option("hotbar-enabled", "on").unwrap();
+    h.run_steps(3);
+    assert!(h.query_by_label("Select (V)").is_some(), "the quick actions still show");
+    assert!(h.query_by_label("Drag hotbar").is_some() && h.query_by_label("Hotbar settings").is_some(), "the enabled hotbar has no grip or gear");
+    assert_eq!(custom(&h), hidden + 1, "the custom tool shows once enabled");
+    assert!(h.state_mut().set_option("hotbar-enabled", "maybe").is_err());
+
+    let mut old = PdfCraftApp::new();
+    old.restore(r#"{"hotbar":{"tools":["comment.ink"]}}"#);
+    let restored: serde_json::Value = serde_json::from_str(&old.persist()).unwrap();
+    assert_eq!(restored["hotbar"]["enabled"], false, "settings without the switch keep the extras hidden");
+    let mut kept = PdfCraftApp::new();
+    kept.restore(&h.state().persist());
+    let kept: serde_json::Value = serde_json::from_str(&kept.persist()).unwrap();
+    assert_eq!(kept["hotbar"]["enabled"], true, "an enabled hotbar stays enabled");
+}
+
 #[test]
 fn hotbar_picker_adds_and_runs_freehand_highlight() {
-    let mut h = harness(|_| {});
+    let mut h = harness(|app| app.set_option("hotbar-enabled", "on").unwrap());
     h.get_by_label("Hotbar settings").click();
     h.run_steps(3);
     field(&h, "Search all tools…").click();
@@ -4658,7 +4689,7 @@ fn hotbar_picker_adds_and_runs_freehand_highlight() {
 /// "Hotbar settings / add tools". It shows the longer one only and keeps its short name.
 #[test]
 fn hotbar_settings_button_shows_one_tooltip() {
-    let mut h = harness(|_| {});
+    let mut h = harness(|app| app.set_option("hotbar-enabled", "on").unwrap());
     h.run_steps(2);
     h.get_by_label("Hotbar settings").hover();
     // egui shows a tooltip once the pointer has rested `tooltip_delay` seconds of *input* time,
@@ -4696,6 +4727,7 @@ fn hotbar_picker_searches_translated_tool_labels() {
     use pdfcraft_ui_egui::i18n::{Lang, tr};
     let french = Lang::from_code("fr").unwrap();
     let mut h = harness(|app| {
+        app.set_option("hotbar-enabled", "on").unwrap();
         app.set_option("language", "fr").unwrap();
     });
     // The button and the search field are in French too, in the catalog's words.
@@ -4714,7 +4746,7 @@ fn hotbar_picker_searches_translated_tool_labels() {
 
 #[test]
 fn hotbar_drag_moves_and_persists_position() {
-    let mut h = harness(|_| {});
+    let mut h = harness(|app| app.set_option("hotbar-enabled", "on").unwrap());
     let before: serde_json::Value = serde_json::from_str(&h.state().persist()).unwrap();
     let from = h.get_by_label("Drag hotbar").rect().center();
     drag(&mut h, from, from + egui::vec2(90.0, 90.0));
@@ -4729,6 +4761,7 @@ fn hotbar_drag_moves_and_persists_position() {
 #[test]
 fn hotbar_vertical_size_and_docking() {
     let mut h = harness(|app| {
+        app.set_option("hotbar-enabled", "on").unwrap();
         app.set_option("hotbar-tools", "comment.ink,comment.freehand_highlight").unwrap();
         app.set_option("hotbar-side", "right").unwrap();
     });
@@ -4754,7 +4787,7 @@ fn hotbar_vertical_size_and_docking() {
 
 #[test]
 fn hotbar_settings_layout_and_side_controls_are_reachable_by_label() {
-    let mut h = harness(|_| {});
+    let mut h = harness(|app| app.set_option("hotbar-enabled", "on").unwrap());
     h.get_by_label("Hotbar settings").click();
     h.run_steps(3);
     fn vertical(h: &Harness<'static, PdfCraftApp>) -> serde_json::Value {
@@ -4777,7 +4810,7 @@ fn hotbar_settings_layout_and_side_controls_are_reachable_by_label() {
 
 #[test]
 fn hotbar_settings_reopen_even_with_remembered_collapsed_state() {
-    let mut h = harness(|_| {});
+    let mut h = harness(|app| app.set_option("hotbar-enabled", "on").unwrap());
     let mut collapsed =
         egui::collapsing_header::CollapsingState::load_with_default_open(&h.ctx, egui::Id::unique("hotbar-picker").with("collapsing"), false);
     collapsed.set_open(false);
@@ -4798,6 +4831,7 @@ fn hotbar_settings_reopen_even_with_remembered_collapsed_state() {
 #[test]
 fn hotbar_full_side_strip_spans_each_edge_and_returns_to_float() {
     let mut h = harness(|app| {
+        app.set_option("hotbar-enabled", "on").unwrap();
         app.set_option("hotbar-side", "right").unwrap();
         app.set_option("hotbar-size", "48").unwrap();
     });
@@ -4829,6 +4863,7 @@ fn hotbar_full_side_strip_spans_each_edge_and_returns_to_float() {
 #[test]
 fn hotbar_docked_left_does_not_override_quick_tools() {
     let mut h = harness(|app| {
+        app.set_option("hotbar-enabled", "on").unwrap();
         app.set_option("hotbar-side", "left").unwrap();
     });
     h.run_steps(5);
@@ -4851,6 +4886,7 @@ fn hotbar_docked_in_compact_window_keeps_settings_button_visible() {
             app.set_option("language", "en").unwrap();
             app.open_bytes("text.pdf", None, TEXT_FIXTURE.to_vec()).expect("opens");
             app.set_option("left", "closed").unwrap();
+            app.set_option("hotbar-enabled", "on").unwrap();
             app.set_option("hotbar-side", side).unwrap();
             app.set_option("hotbar-size", "48").unwrap();
             app
@@ -4864,6 +4900,7 @@ fn hotbar_docked_in_compact_window_keeps_settings_button_visible() {
 #[test]
 fn hotbar_settings_menu_closes_on_click_outside() {
     let mut h = harness(|app| {
+        app.set_option("hotbar-enabled", "on").unwrap();
         app.open_bytes("text.pdf", None, TEXT_FIXTURE.to_vec()).expect("opens");
     });
     h.get_by_label("Hotbar settings").click();
@@ -4901,6 +4938,7 @@ fn hotbar_picker_in_narrow_viewport_fits_within_screen_width() {
     let mut h = Harness::builder().with_size(egui::vec2(270.0, 480.0)).build_eframe(|_cc| {
         let mut app = PdfCraftApp::new();
         app.set_option("language", "en").unwrap();
+        app.set_option("hotbar-enabled", "on").unwrap();
         app.open_bytes("text.pdf", None, TEXT_FIXTURE.to_vec()).expect("opens");
         app
     });
@@ -4915,6 +4953,7 @@ fn hotbar_floating_picker_does_not_overlap_rendered_bar() {
     let mut h = Harness::builder().with_size(egui::vec2(1000.0, 600.0)).build_eframe(|_cc| {
         let mut app = PdfCraftApp::new();
         app.set_option("language", "en").unwrap();
+        app.set_option("hotbar-enabled", "on").unwrap();
         app.open_bytes("text.pdf", None, TEXT_FIXTURE.to_vec()).expect("opens");
         app
     });
@@ -5648,6 +5687,8 @@ fn edit_copy_is_off_for_a_selected_comment_while_preparing_a_form() {
 #[test]
 fn edit_delete_from_a_native_menu_with_the_hotbar_window_open_removes_the_comment() {
     let mut h = selected_square();
+    h.state_mut().set_option("hotbar-enabled", "on").unwrap();
+    h.run_steps(2);
     h.get_by_label("Hotbar settings").click();
     h.run_steps(3);
     assert!(h.query_by_label("Close menu").is_some(), "the Hotbar tools window is open");
@@ -5667,6 +5708,8 @@ fn edit_delete_from_a_native_menu_with_the_hotbar_window_open_removes_the_commen
 #[test]
 fn edit_delete_from_a_native_menu_into_the_hotbar_window_search_keeps_the_window() {
     let mut h = selected_square();
+    h.state_mut().set_option("hotbar-enabled", "on").unwrap();
+    h.run_steps(2);
     h.get_by_label("Hotbar settings").click();
     h.run_steps(3);
     assert!(h.query_by_label("Close menu").is_some(), "the Hotbar tools window is open");
@@ -5693,6 +5736,8 @@ fn edit_delete_from_a_native_menu_into_the_hotbar_window_search_keeps_the_window
 #[test]
 fn full_screen_closes_the_hotbar_tools_window() {
     let mut h = selected_square();
+    h.state_mut().set_option("hotbar-enabled", "on").unwrap();
+    h.run_steps(2);
     h.get_by_label("Hotbar settings").click();
     h.run_steps(3);
     assert!(h.query_by_label("Close menu").is_some(), "the Hotbar tools window is open");
