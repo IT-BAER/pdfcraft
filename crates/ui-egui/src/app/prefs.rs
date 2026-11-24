@@ -183,6 +183,7 @@ impl PdfCraftApp {
         v["print_custom_papers"] = serde_json::json!(self.print_draft.custom_papers);
         v["show_page_edge_shadows"] = self.show_page_edge_shadows.into();
         v["hotbar"] = serde_json::to_value(&self.hotbar).unwrap_or_default();
+        v["open_in_new_window"] = serde_json::Value::Bool(self.open_in_new_window);
         v["comment_tool_pinned"] = serde_json::Value::Bool(self.comment_prefs.pinned);
         v["show_secured_notice"] = serde_json::Value::Bool(self.show_secured_notice);
         v["text_links"] = serde_json::Value::Bool(self.text_links);
@@ -252,6 +253,9 @@ impl PdfCraftApp {
     fn restore_layout_prefs(&mut self, v: &serde_json::Value) {
         if let Some(on) = v["reopen_last_session"].as_bool() {
             self.reopen_last_session = on;
+        }
+        if let Some(on) = v["open_in_new_window"].as_bool() {
+            self.open_in_new_window = on;
         }
         if let Some(on) = v["restore_last_view"].as_bool() {
             self.restore_last_view = on;

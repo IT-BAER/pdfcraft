@@ -56,6 +56,7 @@ mod layer_actions;
 mod links;
 mod marks;
 mod min_window;
+mod new_window;
 mod object_selection;
 mod ocr;
 mod open_action;
