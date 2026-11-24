@@ -25,6 +25,8 @@ pub fn right_panel(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
     let mut bm_rename = app.bookmark_rename.clone();
     let bm_editable = app.session.get(id).is_some_and(|d| d.allows_assembly() && d.read_only_reason.is_none());
     let bm_can_paste = app.bookmark_clipboard.is_some();
+    let outline_editable = bm_editable && app.offers("bookmark.add");
+    let offers_attach = app.offers("edit.attach");
     // Prepare a form is open: the Fields panel orders tabs.
     let preparing = app.is_preparing();
     // The Pages panel's Escape and Delete act on the pages: not while something is over them.
@@ -104,15 +106,15 @@ pub fn right_panel(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
                             };
                             view.comments.search_focus = true;
                         }
-                        if panel == RightPanel::Bookmarks && (bm_editable || !info.outline.is_empty()) {
+                        if panel == RightPanel::Bookmarks && (outline_editable || !info.outline.is_empty()) {
                             let more = icons::button(ui, "ellipsis", 26.0, false, tl!("Bookmark options"));
                             egui::Popup::menu(&more).show(|ui| {
                                 ui.set_min_width(200.0);
-                                if bm_editable && ui.button(tl!("New bookmarks from structure")).clicked() {
+                                if outline_editable && ui.button(tl!("New bookmarks from structure")).clicked() {
                                     bm_action = Some(BmAction::FromStructure);
                                     ui.close();
                                 }
-                                if bm_editable && ui.button(tl!("New bookmarks from text styles…")).clicked() {
+                                if outline_editable && ui.button(tl!("New bookmarks from text styles…")).clicked() {
                                     bm_action = Some(BmAction::FromTextStyles);
                                     ui.close();
                                 }
@@ -145,7 +147,7 @@ pub fn right_panel(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
                             });
                         }
                         let new_tip = crate::commands::command_tip(ui.ctx(), tl!("New bookmark ({key})"), "bookmark.add");
-                        if panel == RightPanel::Bookmarks && bm_editable && icons::button(ui, "bookmark-plus", 26.0, false, &new_tip).clicked() {
+                        if panel == RightPanel::Bookmarks && outline_editable && icons::button(ui, "bookmark-plus", 26.0, false, &new_tip).clicked() {
                             bm_action = Some(BmAction::New);
                         }
                     });
@@ -203,7 +205,7 @@ pub fn right_panel(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
                             nav: &mut nav,
                             action: &mut bm_action,
                             rename: &mut bm_rename,
-                            editable: bm_editable,
+                            editable: outline_editable,
                             can_paste: bm_can_paste,
                             current: view.current,
                             expand: bm_expand,
@@ -307,7 +309,7 @@ pub fn right_panel(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
                     RightPanel::Search => crate::search_ui::panel(ui, &t, view, info.pages.len()),
                     RightPanel::Compare => compare_action = crate::compare_ui::panel(ui, &t, compare, id),
                     RightPanel::Attachments => {
-                        let attachable = doc.allows_modification() && doc.read_only_reason.is_none();
+                        let attachable = offers_attach && doc.allows_modification() && doc.read_only_reason.is_none();
                         if attachable {
                             egui::Frame::NONE.inner_margin(egui::Margin::symmetric(4, 6)).show(ui, |ui| {
                                 if ui.add(egui::Button::new(tl!("Attach a file…"))).clicked() {

@@ -47,9 +47,6 @@ impl PdfCraftApp {
             ("show_page_edge_shadows", _) => {
                 self.show_page_edge_shadows = value.parse::<bool>().map_err(|_| "show_page_edge_shadows must be true or false")?;
             }
-            ("update_check_at_start", _) => {
-                self.update_check_at_start = value.parse::<bool>().map_err(|_| "update_check_at_start must be true or false")?;
-            }
             ("scroll_speed", _) => {
                 self.scroll_speed = scroll_speed::ScrollSpeed::parse(value).ok_or("scroll_speed must be slow, normal, or fast")?;
             }
@@ -60,7 +57,7 @@ impl PdfCraftApp {
                 self.animation_effects = motion::AnimationEffects::parse(value).ok_or("animation_effects must be system, on, or off")?;
             }
             ("panel", _) => {
-                self.right = match value {
+                let panel = match value {
                     "comments" => Some(RightPanel::Comments),
                     "bookmarks" => Some(RightPanel::Bookmarks),
                     "pages" => Some(RightPanel::Pages),
@@ -74,10 +71,14 @@ impl PdfCraftApp {
                     "compare" => Some(RightPanel::Compare),
                     "none" => None,
                     other => return Err(format!("unknown panel {other}")),
+                };
+                if panel.is_some_and(|p| !self.offers_panel(p)) {
+                    return Err(format!("panel {value} is not available in this version"));
                 }
+                self.right = panel;
             }
             ("mode", _) => {
-                let mode = Mode::parse(value).unwrap_or(Mode::AllTools);
+                let mode = Mode::parse(value).filter(|m| self.offers_mode(*m)).unwrap_or(Mode::AllTools);
                 self.mode_override = Some(mode);
                 self.mode = mode;
                 // As switch_mode: another workspace puts the expanded All tools view away.
@@ -102,6 +103,25 @@ impl PdfCraftApp {
                 self.all_tools_full = false;
             }
             ("dialog", _) => {
+                // The reader profile opens only the dialogs of its own commands.
+                let reader_dialog = matches!(
+                    value,
+                    "properties"
+                        | "security"
+                        | "fonts"
+                        | "custom"
+                        | "advanced"
+                        | "space-audit"
+                        | "shortcuts"
+                        | "preferences"
+                        | "signature"
+                        | "sign"
+                        | "about"
+                        | "none"
+                );
+                if self.reader_profile && !reader_dialog {
+                    return Err(format!("dialog {value} is not available in this version"));
+                }
                 self.dialog = match value {
                     "properties" => Some(Dialog::Properties(PropsTab::Description)),
                     "security" => Some(Dialog::Properties(PropsTab::Security)),
@@ -327,7 +347,7 @@ impl PdfCraftApp {
             ("notice", Some(v)) => v.notice_dismissed = value == "off",
             ("quick", _) => {
                 // `--quick select|hand|note|freetext|highlight|underline|strikeout|ink|line|arrow|square|circle`
-                self.quick_tool = match value {
+                let tool = match value {
                     "select" => QuickTool::Select,
                     measure if measure.starts_with("measure-") => QuickTool::Measure(
                         measure_ui::Tool::from_name(measure.trim_start_matches("measure-")).ok_or_else(|| format!("unknown tool {measure}"))?,
@@ -372,6 +392,10 @@ impl PdfCraftApp {
                         QuickTool::Comment(t)
                     }
                 };
+                if !self.offers_quick(tool) {
+                    return Err(format!("tool {value} is not available in this version"));
+                }
+                self.quick_tool = tool;
             }
             ("author", _) => self.comment_prefs.author = value.to_string(),
             ("folder-collapsed", _) => self.set_folder_collapsed(value)?,

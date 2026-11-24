@@ -9,15 +9,6 @@
 // The settings object in `persist` is one `json!` literal past the default limit of 128.
 #![recursion_limit = "256"]
 
-/// PdfCraft as craft-update knows it, with its 128 px icon and accent colour: the update
-/// prompt shows both, and an AppImage's menu entry gets the icon.
-#[cfg(not(target_arch = "wasm32"))]
-pub const UPDATE_APP: craft_update::app::App = craft_update::app::App {
-    icon_png: Some(include_bytes!("../../../assets/app-icon/hicolor/128x128/apps/ai.storyteller.pdfcraft.png")),
-    accent: Some([0xb7, 0x02, 0x28]),
-    ..craft_update::suite::PDFCRAFT
-};
-
 use crate::control::Host as _;
 
 /// Translate an English UI string into the current language (see [`i18n`]).
@@ -103,7 +94,7 @@ pub(crate) mod os_clipboard;
 
 #[cfg(not(target_arch = "wasm32"))]
 pub(crate) use app::same_file;
-pub(crate) use app::{MAX_AUTHOR_CHARS, copy_refused, date_text_for_pdf, print_refused};
+pub(crate) use app::{MAX_AUTHOR_CHARS, copy_refused, date_text_for_pdf, offered, print_refused};
 use canvas::autoscroll;
 use canvas::crop;
 use canvas::fling;
@@ -121,7 +112,6 @@ use dialogs::appearance;
 pub use dialogs::bookmark_styles_ui;
 use dialogs::comment_props;
 use dialogs::convert_colours_ui;
-use dialogs::credits;
 use dialogs::hairlines_ui;
 use dialogs::marks_ui;
 use dialogs::pageboxes;
@@ -163,7 +153,6 @@ pub use platform::portable;
 #[cfg(not(target_arch = "wasm32"))]
 use platform::system_fonts;
 pub use platform::ui_scale;
-pub use platform::updates;
 pub use platform::window_controls;
 #[cfg(test)]
 use state::CopyPage;
@@ -440,8 +429,6 @@ pub struct PdfCraftApp {
     /// Current Properties Default last took from typed text (none at first).
     pub fill_text_default: fill_sign::TextBorder,
     pub dialog: Option<Dialog>,
-    /// How to ask for the latest release (the desktop app sets it; see `updates`).
-    pub(crate) updates: updates::Updates,
     /// Lists the Print dialog's printers in the background (the desktop app sets it; see
     /// [`PrinterSource`]).
     pub printer_source: Option<PrinterSource>,
@@ -485,9 +472,6 @@ pub struct PdfCraftApp {
     quit_session: Option<last_session::LastSession>,
     /// Preferences: reload a document when its file changes on disk (#431).
     pub reload_changed_files: bool,
-    /// Preferences: ask for a newer release when the desktop app starts (#5737). Off, the app
-    /// asks only from Help ▸ Check for updates.
-    pub update_check_at_start: bool,
     /// Preferences: tell the user, above the pages, that a document is secured (its security
     /// settings restrict changes). Off only hides that notice (#4035); kept in the settings.
     pub show_secured_notice: bool,
@@ -871,4 +855,7 @@ pub struct PdfCraftApp {
     pub pending_window: Option<viewer_prefs::PendingWindow>,
     /// An absolute GoToR target waiting for approval, before any target-file I/O (#1364).
     pub pending_remote_link: Option<PendingRemoteLink>,
+    /// Offer only [`pdfcraft_engine::reader`]'s commands and tool groups; the rest is hidden
+    /// and refused.
+    pub reader_profile: bool,
 }

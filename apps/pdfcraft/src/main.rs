@@ -208,11 +208,6 @@ fn main() -> eframe::Result {
     }
     // aws-lc detects the CPU's features here, where it used to before `main` (`init_crypto`).
     pdfcraft_engine::sign::init_crypto();
-    // Windows: the update helper is a copy of this program started with `--finish-update`.
-    #[cfg(windows)]
-    if let Some(result) = craft_update::self_update::finish(&pdfcraft_ui_egui::UPDATE_APP, &std::env::args_os().skip(1).collect::<Vec<_>>()) {
-        std::process::exit(i32::from(result.is_err()));
-    }
     // First, so the panic hook and every start-up warning are recorded (`logging`).
     let logger = logging::install();
     if let Some(value) = pdfcraft_platform::crypto_env::dropped() {
@@ -462,6 +457,7 @@ fn app_creator<'a>(
     Box::new(move |cc| {
         started.set(true);
         let mut app = PdfCraftApp::new();
+        app.reader_profile = true;
         // First start (or settings from before Units existed): the region's unit.
         app.units = pdfcraft_ui_egui::units::Unit::system();
         #[cfg(target_os = "linux")]
@@ -484,7 +480,6 @@ fn app_creator<'a>(
             }
             app.motion.source = Some(motion::source());
         }
-        app.set_startup_update_check(true);
         app.printer_source = Some(pdfcraft_ui_egui::system_printers());
         app.two_sided_source = Some(pdfcraft_ui_egui::system_two_sided());
         app.os_key_store_ids = cfg!(any(target_os = "macos", target_os = "windows"));
@@ -532,7 +527,9 @@ fn app_creator<'a>(
             );
         }
         let defer_layout = two_paged && !files.is_empty() && !create_images;
-        if create_images {
+        if create_images && app.reader_profile {
+            app.notify_tr("Not available in this version");
+        } else if create_images {
             if let Err(e) = app.begin_image_import_paths(&files) {
                 app.notify(e);
             }

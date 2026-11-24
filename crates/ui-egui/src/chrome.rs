@@ -109,9 +109,7 @@ pub fn tab_strip(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
                     app.combine_tab.focused = false;
                 }
                 // Reserve the three icon buttons and their gaps outside the scrolling tabs.
-                let controls_width = 3.0 * button
-                    + 54.0
-                    + window_controls::width(&controls.right);
+                let controls_width = 3.0 * button + 54.0 + window_controls::width(&controls.right);
                 // Open stays in sight after the tabs: its icon, text and padding, and the gaps around it.
                 let open_width = ui.fonts_mut(|f| f.layout_no_wrap(tl!("Open").into(), theme::medium(13.0), t.text).size().x) + 38.0 + 12.0;
                 let mut tabs_width = (ui.available_width() - controls_width - open_width).max(0.0);
@@ -731,13 +729,18 @@ pub fn mode_bar(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
                 }
                 // Acrobat's mode bar has no Read tab: reading is what the viewer does with no tool
                 // in use. Read mode (the panes hidden) stays a View command and a default workspace.
-                let modes = [(Mode::AllTools, "All tools"), (Mode::Edit, "Edit"), (Mode::Convert, "Convert"), (Mode::Sign, "E-Sign")];
+                let modes: Vec<(Mode, &str)> =
+                    [(Mode::AllTools, "All tools"), (Mode::Edit, "Edit"), (Mode::Convert, "Convert"), (Mode::Sign, "E-Sign")]
+                        .into_iter()
+                        .filter(|(m, _)| app.offers_mode(*m))
+                        .collect();
                 // What the right side needs (three 32 px buttons, gaps) and the least search box worth showing.
                 let avail = ui.available_width();
-                let tabs_w: f32 = modes.iter().map(|(_, l)| widgets::mode_tab_width(ui, tl!(*l))).sum::<f32>() + 2.0 * (modes.len() as f32 - 1.0);
+                let tabs_w: f32 =
+                    modes.iter().map(|(_, l)| widgets::mode_tab_width(ui, tl!(*l))).sum::<f32>() + 2.0 * (modes.len().saturating_sub(1) as f32);
                 let inline_tabs = avail >= tabs_w + MODE_BAR_RIGHT + MODE_BAR_SEARCH_MIN;
                 if inline_tabs {
-                    for (mode, label) in modes {
+                    for &(mode, label) in &modes {
                         if widgets::mode_tab(ui, tl!(label), app.mode == mode).clicked() {
                             app.switch_mode(mode, true);
                         }
@@ -753,7 +756,7 @@ pub fn mode_bar(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
                     let resp = widgets::ghost_button(ui, "chevron-down", current);
                     egui::Popup::menu(&resp).show(|ui| {
                         ui.set_min_width(160.0);
-                        for (mode, label) in modes {
+                        for &(mode, label) in &modes {
                             if ui.add(egui::Button::selectable(app.mode == mode, tl!(label))).clicked() {
                                 app.switch_mode(mode, true);
                             }
@@ -836,6 +839,7 @@ pub fn right_rail(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
         !doc.info.attachments.is_empty(),
     );
     let page_count = doc.info.pages.len();
+    let (offers_a11y, offers_tags) = (app.offers_panel(RightPanel::Accessibility), app.offers_panel(RightPanel::Tags));
     let labels: Vec<String> = doc.info.pages.iter().map(|p| p.label.clone()).collect();
     let item = |panel: RightPanel, icon: &str, label: &str, marker: Option<&str>| {
         let item = RailItem::new(panel, icons::source(icon), tl!(label)).marker(marker.is_some());
@@ -854,10 +858,12 @@ pub fn right_rail(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
         item(RightPanel::Attachments, "paperclip", "Attachments", has(has_files, "Has attachments")),
         item(RightPanel::Signatures, "signature", "Signatures", has(has_signatures, "Signed")),
     ];
-    if has_check {
+    if has_check && offers_a11y {
         items.push(item(RightPanel::Accessibility, "accessibility", "Accessibility Checker", None));
     }
-    items.push(item(RightPanel::Tags, "tag", "Tags", None));
+    if offers_tags {
+        items.push(item(RightPanel::Tags, "tag", "Tags", None));
+    }
     let view = &mut app.views[index];
     let mut page_display = None;
     let rail = Rail::new(egui::Id::unique("rail"))

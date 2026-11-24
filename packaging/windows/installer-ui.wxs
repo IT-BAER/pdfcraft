@@ -10,16 +10,16 @@
         <Control Id="Title" Type="Text" X="20" Y="20" Width="330" Height="25" Text="{\InstallerTitle}Install [ProductName]" />
         <Control Id="Description" Type="Text" X="20" Y="50" Width="330" Height="30" Text="Setup will install [ProductName] for all users and add it to the Start menu. Click Install to continue." HideCondition="ALLUSERS &lt;&gt; 1" ShowCondition="ALLUSERS = 1" />
         <Control Id="DescriptionUser" Type="Text" X="20" Y="50" Width="330" Height="30" Text="Setup will install [ProductName] only for your account and add it to the Start menu. Click Install to continue." HideCondition="ALLUSERS = 1" ShowCondition="ALLUSERS &lt;&gt; 1" />
-        <!-- The install folder (#1139): typed here, or picked in the browse dialog. It starts on the
-             folder install-policy.wxi chose for the scope (the recorded one on an update). Install
-             validates and sets it (SetTargetPath) before the dialog closes. -->
+        <!-- The install folder (#1139): typed here, or picked in the browse dialog. It starts on
+             Program Files\PdfCraft (SMS build: always per-machine). Install validates and sets it
+             (SetTargetPath) before the dialog closes. -->
         <Control Id="InstallToLabel" Type="Text" X="20" Y="84" Width="330" Height="12" Text="Install &amp;to:" />
         <Control Id="InstallTo" Type="PathEdit" X="20" Y="98" Width="262" Height="18" Property="INSTALLFOLDER" />
         <Control Id="Browse" Type="PushButton" X="288" Y="96" Width="62" Height="22" Text="B&amp;rowse…">
           <Publish Event="SpawnDialog" Value="BrowseFolder" />
         </Control>
         <Control Id="DesktopShortcut" Type="CheckBox" X="20" Y="126" Width="330" Height="17" Property="INSTALLDESKTOPSHORTCUT" CheckBoxValue="1" Text="Create a &amp;desktop shortcut" />
-        <Control Id="PdfContextMenu" Type="CheckBox" X="20" Y="144" Width="330" Height="17" Property="INSTALLPDFCONTEXTMENU" CheckBoxValue="1" Text="Add &amp;Edit and Combine files to the right-click menu of PDF files" />
+        <Control Id="PdfContextMenu" Type="CheckBox" X="20" Y="144" Width="330" Height="17" Property="INSTALLPDFCONTEXTMENU" CheckBoxValue="1" Text="Add &quot;&amp;Open with PdfCraft&quot; to the right-click menu of PDF files" />
         <Control Id="Install" Type="PushButton" X="195" Y="175" Width="75" Height="23" Default="yes" DefaultCondition="ALLUSERS = 1" ElevationShield="yes" HideCondition="ALLUSERS &lt;&gt; 1" ShowCondition="ALLUSERS = 1" Text="&amp;Install">
           <Publish Event="SetTargetPath" Value="INSTALLFOLDER" Order="1" />
           <Publish Event="EndDialog" Value="Return" Order="2" />

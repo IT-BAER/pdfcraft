@@ -436,9 +436,6 @@ pub const COMMANDS: &[CommandSpec] = &[
     c("prepress.hairlines", "Fix hairlines…", None, None, Modification, "minus"),
     c("page.properties", "Page properties…", PAGES, None, Modification, "info"),
     c("help.shortcuts", "Keyboard shortcuts", HELP, None, Nothing, "circle-help"),
-    c("help.app_page", "PdfCraft web page", HELP, None, Nothing, "globe"),
-    c("help.github", "PdfCraft on GitHub", HELP, None, Nothing, "code-xml"),
-    c("help.check_updates", "Check for updates…", HELP, None, Nothing, "cloud"),
     c("help.about", "About PdfCraft", HELP, None, Nothing, "info"),
 ];
 

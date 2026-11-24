@@ -256,6 +256,7 @@ pub(super) fn page_tool_input(ui: &mut egui::Ui, view: &mut DocView, frame: &mut
     let on_link = tool == QuickTool::Link && can_modify && crate::link_ui::page_input(cx, press == PagePress::Free, link_owner, link_context, view);
     if tool == QuickTool::Select
         && can_modify
+        && crate::offered(cx.ui.ctx(), "edit.link")
         && let Some(index) = link_context
     {
         view.links.context = Some((i, index));

@@ -904,6 +904,27 @@ pub enum ViewAction {
     LockSignatures,
 }
 
+impl ViewAction {
+    /// The registered command this action belongs to, for the reader profile's check. `None` when
+    /// the action runs one itself ([`Self::CameraNext`]) or belongs to Fill & Sign, which the
+    /// profile keeps ([`Self::LockSignatures`]).
+    pub(crate) fn command(&self) -> Option<&'static str> {
+        Some(match self {
+            Self::InsertFromFile | Self::InsertFromFileAt(_) => "page.insert",
+            Self::ReplacePages => "page.replace",
+            Self::Save => "file.save",
+            Self::Extract => "page.extract",
+            Self::Split | Self::SplitBeforeSelected => "page.split",
+            Self::CopyPages { cut: false } => "page.copy",
+            Self::CopyPages { cut: true } => "page.cut",
+            Self::PastePages => "page.paste",
+            Self::EnhanceCamera | Self::CancelCamera | Self::CameraRotate { .. } | Self::CameraLevel => "ocr.enhance_camera",
+            Self::Replace { .. } => "edit.replace",
+            Self::CameraNext(_) | Self::LockSignatures => return None,
+        })
+    }
+}
+
 /// Default page right-click menu actions.
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) enum PageMenuAction {

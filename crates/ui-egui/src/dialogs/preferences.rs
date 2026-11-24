@@ -659,8 +659,6 @@ fn card_general(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tokens, ctx: &mut 
     ctx.checkbox(ui, &mut app.restore_last_view, tl!("Restore the last view (page, zoom and page display) when a document is opened again"), t);
     #[cfg(not(target_arch = "wasm32"))]
     ctx.checkbox(ui, &mut app.reload_changed_files, tl!("Reload documents when their files change on disk"), t);
-    #[cfg(not(target_arch = "wasm32"))]
-    ctx.checkbox(ui, &mut app.update_check_at_start, tl!("Check for updates when PdfCraft starts"), t);
     ctx.checkbox(ui, &mut app.show_secured_notice, tl!("Show a notice when a document is secured"), t);
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -749,18 +747,17 @@ fn apply_view_pref_changes(view: &mut crate::DocView, defaults: &ViewDefaults, c
 fn card_documents_and_view(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tokens, ctx: &mut PrefSearchContext) {
     ui.horizontal(|ui| {
         ctx.label_primary(ui, tl!("Default workspace mode"), t);
-        ctx.pill_choice(
-            ui,
-            t,
-            &mut app.default_mode,
-            &[
-                (crate::Mode::AllTools, tl!("All tools")),
-                (crate::Mode::Read, tl!("Read")),
-                (crate::Mode::Edit, tl!("Edit")),
-                (crate::Mode::Convert, tl!("Convert")),
-                (crate::Mode::Sign, tl!("E-Sign")),
-            ],
-        );
+        let modes: Vec<_> = [
+            (crate::Mode::AllTools, tl!("All tools")),
+            (crate::Mode::Read, tl!("Read")),
+            (crate::Mode::Edit, tl!("Edit")),
+            (crate::Mode::Convert, tl!("Convert")),
+            (crate::Mode::Sign, tl!("E-Sign")),
+        ]
+        .into_iter()
+        .filter(|&(mode, _)| app.offers_mode(mode))
+        .collect();
+        ctx.pill_choice(ui, t, &mut app.default_mode, &modes);
     });
     ctx.label_secondary(ui, tl!("Used when opening PDFs. An explicit launch or control mode takes precedence for the session."), t);
     ui.add_space(6.0);

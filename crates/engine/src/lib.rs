@@ -49,6 +49,7 @@ mod pictures;
 pub mod print_raster;
 pub mod printcheck;
 mod protection;
+pub mod reader;
 mod rename;
 mod rich_copy;
 pub mod scan_clean;

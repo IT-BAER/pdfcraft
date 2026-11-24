@@ -19,6 +19,7 @@ mod prefs;
 mod window;
 
 pub(crate) use clipboard::{ObjectClipMark, copy_refused, print_refused};
+pub(crate) use commands::offered;
 #[cfg(not(target_arch = "wasm32"))]
 pub(crate) use files::same_file;
 use frame::migrate_panel_state;
@@ -132,7 +133,6 @@ impl PdfCraftApp {
             fill_text_border_shape: pdfcraft_engine::BorderShape::Rectangle,
             fill_text_default: fill_sign::TextBorder::NONE,
             dialog: None,
-            updates: updates::Updates::default(),
             printer_source: None,
             options_source: None,
             default_paper_source: None,
@@ -154,7 +154,6 @@ impl PdfCraftApp {
             last_session: Default::default(),
             quit_session: None,
             reload_changed_files: true,
-            update_check_at_start: true,
             show_secured_notice: true,
             text_links: true,
             always_default_view: false,
@@ -331,6 +330,7 @@ impl PdfCraftApp {
             pending_full_screen: None,
             pending_window: None,
             pending_remote_link: None,
+            reader_profile: false,
             protect_draft: Default::default(),
             text_style_draft: Default::default(),
             boxes_draft: Default::default(),
@@ -437,14 +437,14 @@ impl PdfCraftApp {
     }
 
     /// The pages are covered, and no page key reaches them, a menu click's included: by a dialog or
-    /// prompt that turns the menus off (`modal_open`), by the full-screen and update prompts, which
-    /// leave the menus on, by the palette, which turns them off, or by the OCR Verify screen, which
-    /// takes the pages' place.
+    /// prompt that turns the menus off (`modal_open`), by the full-screen prompt, which leaves the
+    /// menus on, by the palette, which turns them off, or by the OCR Verify screen, which takes the
+    /// pages' place.
     pub(crate) fn covers_pages(&self) -> bool {
         // Full screen draws the page alone: not the palette, nor the OCR Verify screen it was
         // entered over. Dialogs and prompts show there too.
         let shown = !(self.full_screen && self.active.is_some());
-        self.modal_open() || self.pending_full_screen.is_some() || self.updates.prompt_open() || (self.palette_open || self.ocr_verify.open) && shown
+        self.modal_open() || self.pending_full_screen.is_some() || (self.palette_open || self.ocr_verify.open) && shown
     }
 
     /// A dialog or prompt is open over the window: the keyboard is its own, and nothing may act
@@ -460,7 +460,6 @@ impl PdfCraftApp {
             || self.unlock_prompt.is_some()
             || self.pending_link.is_some()
             || self.pending_remote_link.is_some()
-            || self.updates.open
     }
 
     /// Show `msg` in the toast now, in place of whatever it showed. Script messages still waiting
@@ -500,7 +499,7 @@ impl PdfCraftApp {
 
     /// Pin a tool group to Home. Returns true if newly pinned.
     pub fn pin_tool(&mut self, id: &str) -> bool {
-        if pdfcraft_engine::catalog::group(id).is_none() {
+        if pdfcraft_engine::catalog::group(id).is_none() || !self.offers_group(id) {
             return false;
         }
         if !self.is_tool_pinned(id) {
@@ -563,11 +562,6 @@ impl eframe::App for PdfCraftApp {
             self.window_state.keep(storage, minimized);
         }
         storage.set_string("pdfcraft", self.persist());
-    }
-
-    /// Starts an update that waits for the exit. On macOS the process ends before the app is dropped.
-    fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
-        self.updates.exiting();
     }
 
     /// Each frame's work before drawing: opens, operating-system and control-channel requests,
@@ -748,7 +742,6 @@ impl PdfCraftApp {
                 report(dirty);
             }
         }
-        self.poll_updates();
         self.poll_print();
         // Shortcuts deferred last frame: the text field has taken that frame's typing since.
         let deferred = std::mem::take(&mut self.deferred_commands);
@@ -821,6 +814,7 @@ impl PdfCraftApp {
         self.injected_panic(crate::frame_guard::FramePart::Ui);
         let ctx = ui.ctx().clone();
         i18n::set_current(i18n::Lang::from_pref(&self.language));
+        ctx.data_mut(|d| d.insert_temp(commands::reader_profile_id(), self.reader_profile));
         // A language change switches stock chrome between LTR and RTL before anything is drawn.
         theme::sync_direction(&ctx);
         // Fonts registered via set_fonts only take effect next frame; named families would panic now.

@@ -105,6 +105,9 @@ impl PdfCraftApp {
         if !matches!(pdfcraft_engine::source_kind(name, bytes), Some(SourceKind::Image | SourceKind::Text | SourceKind::Office)) {
             return None;
         }
+        if !self.offers("create.file") {
+            return Some(Err(tl!("Not available in this version").to_string()));
+        }
         let created = self.session.convert_to_pdf(name, &Arc::new(bytes.to_vec())).map(|(_, pdf)| pdf);
         Some(self.open_converted_pdf(name, created.map_err(|e| e.to_string())))
     }

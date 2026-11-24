@@ -3,7 +3,8 @@
 //! ```text
 //! cargo run -p pdfcraft-ui-egui --example shot -- out.png [file.pdf] [--size 1440x900] [--scale 2] [--page 3 --panel pages …]
 //! ```
-//! `--width N` downscales the image to N pixels wide (README screenshots). Any other
+//! `--width N` downscales the image to N pixels wide (README screenshots). `--reader` turns on
+//! the reader profile, as the desktop app does. Any other
 //! `--key value` pair is passed to `PdfCraftApp::set_option`
 //! (the same verbs as the desktop app's command-line flags and the future control channel).
 //! `--ocr-verify on` ignores any file and instead builds a synthetic scanned page, recognizes
@@ -67,6 +68,7 @@ fn main() -> Result<(), String> {
     let (mut size, mut scale) = (egui::vec2(1440.0, 900.0), 2.0f32);
     let mut width: Option<u32> = None;
     let mut ocr_verify = false;
+    let mut reader = false;
     while let Some(a) = args.next() {
         match a.strip_prefix("--") {
             Some("size") => {
@@ -75,6 +77,7 @@ fn main() -> Result<(), String> {
                 size = egui::vec2(w.parse().map_err(|_| "bad width")?, h.parse().map_err(|_| "bad height")?);
             }
             Some("scale") => scale = args.next().and_then(|v| v.parse().ok()).ok_or("bad --scale")?,
+            Some("reader") => reader = true,
             Some("width") => width = Some(args.next().and_then(|v| v.parse().ok()).ok_or("bad --width")?),
             Some("ocr-verify") => ocr_verify = args.next().is_some_and(|v| v == "on"),
             Some(k) => opts.push((k.to_string(), args.next().unwrap_or_default())),
@@ -83,6 +86,7 @@ fn main() -> Result<(), String> {
     }
     let mut harness = Harness::builder().with_size(size).with_pixels_per_point(scale).build_eframe(move |_cc| {
         let mut app = PdfCraftApp::new();
+        app.reader_profile = reader;
         if ocr_verify {
             if let Err(e) = load_ocr_verify(&mut app) {
                 eprintln!("shot: --ocr-verify: {e}");
